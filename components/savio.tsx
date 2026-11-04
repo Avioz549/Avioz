@@ -1,15 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState, useRef } from "react";
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
+import { Fragment, useEffect, useState, useRef } from "react";
 import {
   LayoutDashboard,
   ArrowLeftRight,
@@ -19,16 +10,12 @@ import {
   CalendarDays,
   Sparkles,
   Settings,
-  ArrowUpRight,
-  ArrowDownRight,
   Plus,
   ChevronLeft,
   ChevronRight,
   Search,
   ArrowRight,
   Download,
-  Play,
-  Square,
   Trash2,
   Pencil,
   Globe,
@@ -36,8 +23,9 @@ import {
   Moon,
   ShieldCheck,
   Menu,
-  Check,
   TrendingUp,
+  Bell,
+  MoreHorizontal,
 } from "lucide-react";
 import {
   emptyData,
@@ -59,11 +47,16 @@ import {
   type Workplace,
 } from "@/lib/finance";
 import { words } from "@/lib/i18n";
-import { elapsedLabel, localMonth } from "@/lib/time";
+import { localMonth } from "@/lib/time";
 import { useReminders } from "@/lib/use-reminders";
 import { categoryLabel } from "@/lib/categories";
 import { SpendingAnalytics } from "./spending-analytics";
 import { FinancialCalendar } from "./financial-calendar";
+import { WelcomeScreen } from "./welcome-screen";
+import { ReferenceDashboard } from "./reference-dashboard";
+import { ReferenceWork } from "./reference-work";
+import { BudgetScreen } from "./budget-screen";
+import { GoalArtwork, CategoryGlyph } from "./reference-icons";
 import { SettingsScreen } from "./settings-screen";
 import { BackupManager, exportBackup } from "./backup-manager";
 import { PurchaseCalculator } from "./purchase-calculator";
@@ -85,7 +78,8 @@ type Tab =
   | "ai"
   | "settings"
   | "more"
-  | "challenges";
+  | "challenges"
+  | "welcome";
 type Editor =
   | { kind: "transaction"; value?: Transaction }
   | { kind: "goal"; value?: Goal }
@@ -190,6 +184,7 @@ export function Savio() {
           "settings",
           "more",
           "challenges",
+          "welcome",
         ].includes(initialTab)
       )
         updateTab(initialTab as Tab);
@@ -199,6 +194,14 @@ export function Savio() {
         revision.current = snapshot.revision;
         setData(snapshot.data);
         setReady(true);
+        if (
+          !initialTab &&
+          !localStorage.getItem("savio-welcome-seen") &&
+          !snapshot.data.transactions.length &&
+          !snapshot.data.workplaces.length &&
+          !snapshot.data.goals.length
+        )
+          updateTab("welcome");
         if (migrated)
           setMessage(
             "Your existing local records were migrated safely. The original copy was kept.",
@@ -231,7 +234,7 @@ export function Savio() {
     };
   }, []);
   useEffect(() => {
-    if (!data.shifts.some((s) => !s.end)) return;
+    if (!data.shifts.some((s) => !s.end && !s.pauseStartedAt)) return;
     const timer = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(timer);
   }, [data.shifts]);
@@ -271,20 +274,6 @@ export function Savio() {
     he ? "he-IL" : "en-US",
     { month: "long", year: "numeric" },
   );
-  const chart = Array.from(
-    {
-      length: new Date(
-        Number(month.slice(0, 4)),
-        Number(month.slice(5)),
-        0,
-      ).getDate(),
-    },
-    (_, i) => {
-      const day = String(i + 1).padStart(2, "0");
-      const daily = totals(txs.filter((x) => x.date.endsWith("-" + day)));
-      return { day: i + 1, income: daily.income, expenses: daily.expenses };
-    },
-  );
   const pay = data.shifts
     .filter((s) => localMonth(s.start) === month)
     .reduce(
@@ -297,8 +286,6 @@ export function Savio() {
         ).gross,
       0,
     );
-  const saved = data.goals.reduce((n, g) => n + goalSaved(g), 0),
-    target = data.goals.reduce((n, g) => n + g.target, 0);
   const activeShift = data.shifts.find((s) => !s.end);
   async function remove(
     kind: "transactions" | "goals" | "shifts" | "workplaces",
@@ -337,7 +324,44 @@ export function Savio() {
     await commit({
       ...data,
       shifts: data.shifts.map((s) =>
-        s.id === activeShift.id ? { ...s, end: new Date().toISOString() } : s,
+        s.id === activeShift.id
+          ? {
+              ...s,
+              end: new Date().toISOString(),
+              breakMinutes:
+                s.breakMinutes +
+                (s.pauseStartedAt
+                  ? Math.max(
+                      0,
+                      (Date.now() - Date.parse(s.pauseStartedAt)) / 60000,
+                    )
+                  : 0),
+              pauseStartedAt: undefined,
+            }
+          : s,
+      ),
+    });
+  }
+  async function togglePause() {
+    if (!activeShift) return;
+    setNow(new Date());
+    await commit({
+      ...data,
+      shifts: data.shifts.map((s) =>
+        s.id === activeShift.id
+          ? s.pauseStartedAt
+            ? {
+                ...s,
+                breakMinutes:
+                  s.breakMinutes +
+                  Math.max(
+                    0,
+                    (Date.now() - Date.parse(s.pauseStartedAt)) / 60000,
+                  ),
+                pauseStartedAt: undefined,
+              }
+            : { ...s, pauseStartedAt: new Date().toISOString() }
+          : s,
       ),
     });
   }
@@ -469,27 +493,31 @@ export function Savio() {
     { key: "settings", icon: Settings },
   ] as const;
   const label = (key: Tab) =>
-    key === "more"
+    key === "welcome"
       ? he
-        ? "עוד"
-        : "More"
-      : key === "challenges"
+        ? "ברוכים הבאים"
+        : "Welcome"
+      : key === "more"
         ? he
-          ? "אתגרים"
-          : "Challenges"
-        : key === "overview"
+          ? "עוד"
+          : "More"
+        : key === "challenges"
           ? he
-            ? "בית"
-            : "Home"
-          : key === "shifts"
+            ? "אתגרים"
+            : "Challenges"
+          : key === "overview"
             ? he
-              ? "עבודה"
-              : "Work"
-            : key === "goals"
+              ? "בית"
+              : "Home"
+            : key === "shifts"
               ? he
-                ? "חיסכון"
-                : "Savings"
-              : t[key];
+                ? "עבודה"
+                : "Work"
+              : key === "goals"
+                ? he
+                  ? "חיסכון"
+                  : "Savings"
+                : t[key];
   const primaryNav = [
     { key: "overview", icon: LayoutDashboard },
     { key: "transactions", icon: ArrowLeftRight },
@@ -500,59 +528,78 @@ export function Savio() {
   const transactionList = (items: Transaction[]) =>
     items.length ? (
       <div className="transaction-list">
-        {items.map((x) => (
-          <div className="transaction-row" key={x.id}>
-            <span
-              className={
-                "transaction-icon " + (x.kind === "income" ? "positive" : "")
-              }
-            >
-              {x.kind === "income" ? (
-                <ArrowDownRight size={19} />
-              ) : (
-                <ArrowUpRight size={19} />
+        {items.map((x, index) => (
+          <Fragment key={x.id}>
+            {tab === "transactions" &&
+              (index === 0 || items[index - 1].date !== x.date) && (
+                <h2 className="transaction-day-heading">
+                  {new Date(x.date + "T12:00:00").toLocaleDateString(
+                    he ? "he-IL" : "en-US",
+                    { day: "numeric", month: "long" },
+                  )}
+                </h2>
               )}
-            </span>
-            <div className="grow">
-              <strong>{x.title}</strong>
-              <small>
-                {categoryLabel(x.category, he)} {x.recurring ? "· ↻" : ""}
-              </small>
-            </div>
-            <div className="transaction-amount">
-              <strong className={x.kind === "income" ? "positive" : ""}>
-                {x.kind === "income" ? "+" : "−"}
-                {money(x.amount)}
-              </strong>
-              <small>
-                {new Date(x.date + "T12:00:00").toLocaleDateString(
-                  he ? "he-IL" : "en-US",
-                  { month: "short", day: "numeric" },
-                )}
-              </small>
-            </div>
-            {tab === "transactions" && (
-              <div className="row-actions">
-                <button
-                  aria-label={t.edit}
-                  onClick={() =>
-                    setEditor({
-                      kind: "transaction",
-                      value: data.transactions.find((z) => z.id === x.id),
-                    })
-                  }
-                >
-                  <Pencil size={15} />
-                </button>
-                <button
-                  aria-label={t.delete}
-                  onClick={() => remove("transactions", x.id)}
-                >
-                  <Trash2 size={15} />
-                </button>
+            <div className="transaction-row" key={x.id}>
+              <span
+                className={
+                  "transaction-icon " + (x.kind === "income" ? "positive" : "")
+                }
+              >
+                <CategoryGlyph
+                  category={x.category}
+                  income={x.kind === "income"}
+                />
+              </span>
+              <div className="grow">
+                <strong>{x.title}</strong>
+                <small>
+                  {categoryLabel(x.category, he)} {x.recurring ? "· ↻" : ""}
+                </small>
               </div>
-            )}
-          </div>
+              <div className="transaction-amount">
+                <strong className={x.kind === "income" ? "positive" : ""}>
+                  {x.kind === "income" ? "+" : "−"}
+                  {money(x.amount)}
+                </strong>
+                <small>
+                  {new Date(x.date + "T12:00:00").toLocaleDateString(
+                    he ? "he-IL" : "en-US",
+                    { month: "short", day: "numeric" },
+                  )}
+                </small>
+              </div>
+              {tab === "transactions" && (
+                <details className="row-menu">
+                  <summary
+                    aria-label={
+                      (he ? "פעולות עבור " : "Actions for ") + x.title
+                    }
+                  >
+                    <MoreHorizontal size={20} />
+                  </summary>
+                  <div className="row-actions">
+                    <button
+                      aria-label={t.edit}
+                      onClick={() =>
+                        setEditor({
+                          kind: "transaction",
+                          value: data.transactions.find((z) => z.id === x.id),
+                        })
+                      }
+                    >
+                      <Pencil size={15} />
+                    </button>
+                    <button
+                      aria-label={t.delete}
+                      onClick={() => remove("transactions", x.id)}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                </details>
+              )}
+            </div>
+          </Fragment>
         ))}
       </div>
     ) : (
@@ -572,7 +619,10 @@ export function Savio() {
           mode,
         );
       return (
-        <article key={g.id} className="goal-card">
+        <article key={g.id} className="goal-card reference-goal">
+          <div className="goal-art">
+            <GoalArtwork name={g.name} />
+          </div>
           <div className="flex-between">
             <span className={"goal-icon goal-" + (i % 3)}>
               <Target size={21} />
@@ -604,80 +654,87 @@ export function Savio() {
           </div>
           {tab === "goals" && (
             <>
-              <p className="small muted">
-                {he ? "תכנית מותאמת לתזרים" : "Plan based on cash flow"}:{" "}
-                {money(plan.monthly)} / {he ? "חודש" : "mo"} ·{" "}
-                {plan.completion ||
-                  (he ? "אין אומדן סיום" : "No completion estimate")}
-              </p>
-              <p className="small muted">
-                {he
-                  ? "נדרש מדי חודש לתאריך היעד"
-                  : "Required monthly to meet your date"}
-                :{" "}
-                {plan.requiredMonthly === null
-                  ? "—"
-                  : money(plan.requiredMonthly)}{" "}
-                ·{" "}
-                {plan.onTrack
-                  ? he
-                    ? "בקצב המתאים"
-                    : "On track"
-                  : he
-                    ? "נדרשת התאמת התכנית"
-                    : "Adjust your plan"}
-              </p>
-              <div className="button-row">
-                <button
-                  className="secondary"
-                  onClick={() => setEditor({ kind: "contribution", value: g })}
-                >
-                  <Plus size={14} />
-                  {he ? "הפקדה" : "Contribute"}
-                </button>
-                <button
-                  className="icon-button"
-                  aria-label={t.edit}
-                  onClick={() => setEditor({ kind: "goal", value: g })}
-                >
-                  <Pencil size={15} />
-                </button>
-                <button
-                  className="icon-button"
-                  aria-label={t.delete}
-                  onClick={() => remove("goals", g.id)}
-                >
-                  <Trash2 size={15} />
-                </button>
-              </div>
-              {g.contributions.map((c) => (
-                <div className="flex-between small" key={c.id}>
-                  <span>
-                    {c.date} · {money(c.amount)}
-                  </span>
+              <details className="goal-plan-details">
+                <summary>
+                  {he ? "תכנית והפקדות" : "Plan & contributions"}
+                </summary>
+                <p className="small muted">
+                  {he ? "תכנית מותאמת לתזרים" : "Plan based on cash flow"}:{" "}
+                  {money(plan.monthly)} / {he ? "חודש" : "mo"} ·{" "}
+                  {plan.completion ||
+                    (he ? "אין אומדן סיום" : "No completion estimate")}
+                </p>
+                <p className="small muted">
+                  {he
+                    ? "נדרש מדי חודש לתאריך היעד"
+                    : "Required monthly to meet your date"}
+                  :{" "}
+                  {plan.requiredMonthly === null
+                    ? "—"
+                    : money(plan.requiredMonthly)}{" "}
+                  ·{" "}
+                  {plan.onTrack
+                    ? he
+                      ? "בקצב המתאים"
+                      : "On track"
+                    : he
+                      ? "נדרשת התאמת התכנית"
+                      : "Adjust your plan"}
+                </p>
+                <div className="button-row">
                   <button
-                    className="icon-button"
-                    aria-label="Delete contribution"
+                    className="secondary"
                     onClick={() =>
-                      commit({
-                        ...data,
-                        goals: data.goals.map((x) =>
-                          x.id === g.id
-                            ? {
-                                ...x,
-                                contributions: x.contributions.filter(
-                                  (z) => z.id !== c.id,
-                                ),
-                              }
-                            : x,
-                        ),
-                      })
+                      setEditor({ kind: "contribution", value: g })
                     }
                   >
-                    <Trash2 size={13} />
+                    <Plus size={14} />
+                    {he ? "הפקדה" : "Contribute"}
+                  </button>
+                  <button
+                    className="icon-button"
+                    aria-label={t.edit}
+                    onClick={() => setEditor({ kind: "goal", value: g })}
+                  >
+                    <Pencil size={15} />
+                  </button>
+                  <button
+                    className="icon-button"
+                    aria-label={t.delete}
+                    onClick={() => remove("goals", g.id)}
+                  >
+                    <Trash2 size={15} />
                   </button>
                 </div>
-              ))}
+                {g.contributions.map((c) => (
+                  <div className="flex-between small" key={c.id}>
+                    <span>
+                      {c.date} · {money(c.amount)}
+                    </span>
+                    <button
+                      className="icon-button"
+                      aria-label="Delete contribution"
+                      onClick={() =>
+                        commit({
+                          ...data,
+                          goals: data.goals.map((x) =>
+                            x.id === g.id
+                              ? {
+                                  ...x,
+                                  contributions: x.contributions.filter(
+                                    (z) => z.id !== c.id,
+                                  ),
+                                }
+                              : x,
+                          ),
+                        })
+                      }
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                ))}
+              </details>
             </>
           )}
         </article>
@@ -738,8 +795,26 @@ export function Savio() {
         )}
       </main>
     );
+  if (tab === "welcome")
+    return (
+      <WelcomeScreen
+        he={he}
+        onLanguage={() =>
+          commit({
+            ...data,
+            profile: { ...data.profile, language: he ? "en" : "he" },
+          })
+        }
+        onStart={() => {
+          try {
+            localStorage.setItem("savio-welcome-seen", "1");
+          } catch {}
+          setTab("overview");
+        }}
+      />
+    );
   return (
-    <div className="app-shell">
+    <div className={"app-shell approved-app screen-" + tab}>
       <a className="skip-link" href="#main-content">
         {he ? "דילוג לתוכן" : "Skip to content"}
       </a>
@@ -804,9 +879,43 @@ export function Savio() {
       </aside>
       <div className="main-wrap">
         <header className="topbar">
-          <span className="mobile-brand">
-            SAVIO<span>●</span>
-          </span>
+          <div className="reference-mobile-bar">
+            <button
+              className="icon-button"
+              aria-label={he ? "עוד ואפשרויות" : "More options"}
+              onClick={() => setTab(tab === "overview" ? "calendar" : "more")}
+            >
+              {tab === "overview" ? (
+                <Bell size={20} />
+              ) : (
+                <ArrowRight size={20} />
+              )}
+            </button>
+            {tab === "overview" ? (
+              <strong className="reference-wordmark">SAVIO</strong>
+            ) : (
+              <h1>{label(tab)}</h1>
+            )}
+            <button
+              className="icon-button positive"
+              aria-label={he ? "פעולות מסך" : "Screen actions"}
+              onClick={() =>
+                tab === "goals"
+                  ? setEditor({ kind: "goal" })
+                  : tab === "transactions"
+                    ? setEditor({ kind: "transaction" })
+                    : setTab(tab === "settings" ? "more" : "calendar")
+              }
+            >
+              {tab === "settings" ? (
+                <Settings size={20} />
+              ) : tab === "goals" ? (
+                <Plus size={23} />
+              ) : (
+                <CalendarDays size={20} />
+              )}
+            </button>
+          </div>
           <div className="breadcrumb">
             {he ? "המרחב שלך" : "My workspace"}
             <span>/</span>
@@ -891,40 +1000,6 @@ export function Savio() {
               </button>
             </div>
           </div>
-          {backupDue &&
-            Boolean(
-              data.transactions.length ||
-              data.shifts.length ||
-              data.goals.length ||
-              data.reminders.length ||
-              Object.keys(data.budgets).length,
-            ) && (
-              <div className="backup-reminder">
-                <ShieldCheck size={20} />
-                <div className="grow">
-                  <strong>
-                    {he
-                      ? "הנתונים שלך ראויים לגיבוי"
-                      : "Your records deserve a backup"}
-                  </strong>
-                  <span>
-                    {he
-                      ? "אחסון הדפדפן אינו קבוע ואינו מוצפן. שמרו עותק פרטי."
-                      : "Browser storage is not permanent or encrypted. Keep a private copy."}
-                  </span>
-                </div>
-                <button
-                  className="secondary"
-                  onClick={() => {
-                    exportBackup(data);
-                    setBackupDue(false);
-                  }}
-                >
-                  <Download size={16} />
-                  {he ? "גיבוי עכשיו" : "Back up now"}
-                </button>
-              </div>
-            )}
           {message && (
             <div role="status" className="notice">
               <span>{message}</span>
@@ -934,378 +1009,43 @@ export function Savio() {
             </div>
           )}
           {tab === "overview" && (
-            <>
-              <section className="balance-hero">
-                <div className="hero-copy">
-                  <span className="eyebrow">
-                    {he
-                      ? "מקום לבהירות כלכלית"
-                      : "A LITTLE MORE FINANCIAL CLARITY"}
-                  </span>
-                  <p>{t.balance}</p>
-                  <strong className="hero-balance" dir="ltr">
-                    {money(sum.balance)}
-                  </strong>
-                  <span className="small">
-                    {he
-                      ? "הכנסות פחות הוצאות שנרשמו · לא יתרת בנק"
-                      : "Recorded income less expenses · not a bank balance"}
-                  </span>
-                  <div className="hero-metrics">
-                    <div>
-                      <ArrowDownRight size={18} />
-                      <span>{t.income}</span>
-                      <b>{money(sum.income)}</b>
-                    </div>
-                    <div>
-                      <ArrowUpRight size={18} />
-                      <span>{t.expenses}</span>
-                      <b>{money(sum.expenses)}</b>
-                    </div>
-                  </div>
-                </div>
-                <div className="hero-aside">
-                  <span className="hero-mark">S</span>
-                  <span>
-                    {he ? "הכסף שלך. העתיד שלך." : "Your money. Your future."}
-                  </span>
-                </div>
-              </section>
-              <section
-                className="quick-actions"
-                aria-label={he ? "פעולות מהירות" : "Quick actions"}
-              >
-                <button onClick={() => setEditor({ kind: "transaction" })}>
-                  <span>
-                    <Plus />
-                  </span>
-                  {t.add}
-                </button>
-                <button onClick={() => setTab("shifts")}>
-                  <span>
-                    <Clock3 />
-                  </span>
-                  {he ? "התחלת משמרת" : "Start a shift"}
-                </button>
-                <button onClick={() => setEditor({ kind: "goal" })}>
-                  <span>
-                    <Target />
-                  </span>
-                  {t.newGoal}
-                </button>
-                <button onClick={() => setTab("calendar")}>
-                  <span>
-                    <CalendarDays />
-                  </span>
-                  {he ? "לוח השנה שלי" : "My calendar"}
-                </button>
-              </section>
-              <section className="stats-grid">
-                {[
-                  {
-                    label: t.expected,
-                    value: pay,
-                    icon: Clock3,
-                    color: "green",
-                    note: t.gross,
-                  },
-                  {
-                    label: t.savings,
-                    value: saved,
-                    icon: Target,
-                    color: "purple",
-                    note: target
-                      ? `${Math.round((saved / target) * 100)}% ${he ? "מהיעדים שלך" : "of your combined goals"}`
-                      : he
-                        ? "כל הפקדה היא צעד קדימה"
-                        : "Every contribution is a step forward",
-                  },
-                ].map(({ label, value, icon: Icon, color, note }) => (
-                  <article className="stat-card" key={label}>
-                    <div className="flex-between">
-                      <span>{label}</span>
-                      <span className={"stat-icon " + color}>
-                        <Icon size={18} />
-                      </span>
-                    </div>
-                    <div className="stat-value">{money(value)}</div>
-                    <p>
-                      <span className={"tiny-dot " + color} />
-                      {note}
-                    </p>
-                  </article>
-                ))}
-              </section>
-              <section className="overview-grid">
-                <article className="panel cashflow">
-                  <div className="panel-heading">
-                    <div>
-                      <h2>{t.flow}</h2>
-                      <p>{t.flowSub}</p>
-                    </div>
-                    <div className="legend">
-                      <span>
-                        <i />
-                        {t.incomeType}
-                      </span>
-                      <span>
-                        <i />
-                        {t.expense}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="chart">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart
-                        data={chart}
-                        margin={{ top: 20, right: 10, left: -20, bottom: 0 }}
-                      >
-                        <defs>
-                          <linearGradient
-                            id="income-fill"
-                            x1="0"
-                            y1="0"
-                            x2="0"
-                            y2="1"
-                          >
-                            <stop
-                              offset="0%"
-                              stopColor="#6de4ac"
-                              stopOpacity={0.23}
-                            />
-                            <stop
-                              offset="100%"
-                              stopColor="#6de4ac"
-                              stopOpacity={0}
-                            />
-                          </linearGradient>
-                          <linearGradient
-                            id="expense-fill"
-                            x1="0"
-                            y1="0"
-                            x2="0"
-                            y2="1"
-                          >
-                            <stop
-                              offset="0%"
-                              stopColor="#8c9de7"
-                              stopOpacity={0.12}
-                            />
-                            <stop
-                              offset="100%"
-                              stopColor="#8c9de7"
-                              stopOpacity={0}
-                            />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid
-                          stroke="var(--line)"
-                          vertical={false}
-                          strokeDasharray="3 5"
-                        />
-                        <XAxis
-                          dataKey="day"
-                          tickLine={false}
-                          axisLine={false}
-                          minTickGap={35}
-                          tick={{ fill: "#849087", fontSize: 11 }}
-                        />
-                        <YAxis
-                          tickLine={false}
-                          axisLine={false}
-                          tick={{ fill: "#849087", fontSize: 11 }}
-                        />
-                        <Tooltip
-                          contentStyle={{
-                            background: "var(--panel)",
-                            border: "1px solid var(--line)",
-                            borderRadius: 12,
-                            color: "var(--text)",
-                          }}
-                          formatter={(value) => money(Number(value))}
-                        />
-                        <Area
-                          isAnimationActive={false}
-                          type="monotone"
-                          dataKey="income"
-                          name={t.incomeType}
-                          stroke="#6de4ac"
-                          strokeWidth={2.5}
-                          fill="url(#income-fill)"
-                        />
-                        <Area
-                          isAnimationActive={false}
-                          type="monotone"
-                          dataKey="expenses"
-                          name={t.expense}
-                          stroke="#8c9de7"
-                          strokeWidth={2}
-                          fill="url(#expense-fill)"
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                    {!txs.length && (
-                      <span className="chart-empty">
-                        {he
-                          ? "הוסיפו תנועות כדי לראות את המגמות"
-                          : "Add transactions to reveal your trends"}
-                      </span>
-                    )}
-                  </div>
-                  <div className="chart-footer">
-                    <TrendingUp size={16} />
-                    <span>
-                      {sum.income
-                        ? `${Math.round((sum.balance / sum.income) * 100)}% ${he ? "מההכנסה נשארת לאחר הוצאות" : "of your income remains after expenses"}`
-                        : he
-                          ? "התמונה מתבהרת עם כל תנועה"
-                          : "Clarity grows with every transaction."}
-                    </span>
-                  </div>
-                </article>
-                <article className="panel salary-panel">
-                  <div className="flex-between">
-                    <span className="stat-icon green">
-                      <Clock3 size={21} />
-                    </span>
-                    <span className="pill">
-                      {he ? "עבודה ושכר" : "WORK & SALARY"}
-                    </span>
-                  </div>
-                  <p className="muted">{t.expected}</p>
-                  <h2 className="salary-number">{money(pay)}</h2>
-                  <p className="small muted">{t.gross}</p>
-                  <div className="salary-divider" />
-                  <div className="flex-between small">
-                    <span className="muted">
-                      {he ? "משמרות החודש" : "Shifts this month"}
-                    </span>
-                    <strong>
-                      {
-                        data.shifts.filter((s) => localMonth(s.start) === month)
-                          .length
-                      }
-                    </strong>
-                  </div>
-                  <div className="flex-between small">
-                    <span className="muted">
-                      {he ? "מקומות עבודה" : "Workplaces"}
-                    </span>
-                    <strong>{data.workplaces.length}</strong>
-                  </div>
-                  <button
-                    className="secondary full"
-                    onClick={() => setTab("shifts")}
-                  >
-                    {activeShift ? (
-                      <>
-                        <span className="live-dot" />
-                        Shift in progress
-                      </>
-                    ) : (
-                      <>
-                        <Clock3 size={16} />
-                        {he ? "ניהול המשמרות שלך" : "Manage your shifts"}
-                      </>
-                    )}
-                    <ArrowRight size={16} />
-                  </button>
-                </article>
-              </section>
-              <section className="bottom-grid">
-                <article className="panel">
-                  <div className="panel-heading">
-                    <h2>{t.recent}</h2>
-                    <button
-                      className="text-button"
-                      onClick={() => setTab("transactions")}
-                    >
-                      {t.viewAll}
-                      <ArrowRight size={14} />
-                    </button>
-                  </div>
-                  {transactionList(
-                    [...txs]
-                      .reverse()
-                      .sort((a, b) => b.date.localeCompare(a.date))
-                      .slice(0, 4),
-                  )}
-                </article>
-                <article className="panel goals-preview">
-                  <div className="panel-heading">
-                    <div>
-                      <h2>{t.goalTitle}</h2>
-                      <p>{t.goalSub}</p>
-                    </div>
-                    <button
-                      className="icon-button"
-                      aria-label={t.newGoal}
-                      onClick={() => setEditor({ kind: "goal" })}
-                    >
-                      <Plus size={19} />
-                    </button>
-                  </div>
-                  {data.goals.length ? (
-                    <div className="goal-preview-grid">{goalCards(2)}</div>
-                  ) : (
-                    <button
-                      className="new-goal-card"
-                      onClick={() => setEditor({ kind: "goal" })}
-                    >
-                      <span className="new-goal-icon">
-                        <Target size={27} />
-                      </span>
-                      <strong>
-                        {he ? "למה אתם חוסכים?" : "What are you saving for?"}
-                      </strong>
-                      <span>
-                        {he
-                          ? "טיול גדול, בית ראשון, או פשוט שקט נפשי."
-                          : "A big adventure, a first home, or a little peace of mind."}
-                      </span>
-                      <span className="positive">
-                        {t.newGoal} <Plus size={14} />
-                      </span>
-                    </button>
-                  )}
-                </article>
-              </section>
-              <section className="insight-strip">
-                <span className="insight-icon">
-                  <Sparkles size={24} />
-                </span>
-                <div className="grow">
-                  <span className="eyebrow">SAVIO INSIGHT</span>
-                  <h3>
-                    {sum.income > 0
-                      ? sum.balance > 0
-                        ? he
-                          ? "יש לך מקום לצמוח."
-                          : "You have room to grow."
-                        : he
-                          ? "זמן לבחון את ההוצאות."
-                          : "A good moment to review your spending."
-                      : he
-                        ? "הצעד הראשון הוא להבין."
-                        : "The first step is understanding."}
-                  </h3>
-                  <p>
-                    {sum.income > 0
-                      ? `${money(Math.max(0, sum.balance) * 0.2)} ${he ? "הם 20% מהיתרה המחושבת שלך — נקודת התחלה שמרנית לחיסכון." : "is 20% of your recorded surplus — a conservative starting point for savings."}`
-                      : he
-                        ? "תעדו את ההכנסות וההוצאות כדי לקבל תובנות שמבוססות עליכם."
-                        : "Record your income and expenses to get insights grounded in your own numbers."}
-                  </p>
-                </div>
-                <button className="text-button" onClick={() => setTab("ai")}>
-                  {he ? "בואו נדבר" : "Let’s talk"}
-                  <ArrowUpRight size={17} />
-                </button>
-              </section>
-            </>
+            <ReferenceDashboard
+              data={data}
+              month={month}
+              money={money}
+              pay={pay}
+              onAdd={() => setEditor({ kind: "transaction" })}
+              onWork={() => setTab("shifts")}
+              onSavings={() => setTab("goals")}
+              recent={transactionList(
+                [...txs]
+                  .reverse()
+                  .sort((a, b) => b.date.localeCompare(a.date))
+                  .slice(0, 3),
+              )}
+            />
           )}
           {tab === "transactions" && (
             <article className="panel">
+              <div
+                className="transaction-segments"
+                role="group"
+                aria-label={he ? "סינון תנועות" : "Transaction type"}
+              >
+                {[
+                  { value: "all", label: he ? "הכל" : "All" },
+                  { value: "income", label: t.incomeType },
+                  { value: "expense", label: t.expense },
+                ].map((option) => (
+                  <button
+                    aria-pressed={filter === option.value}
+                    onClick={() => setFilter(option.value)}
+                    key={option.value}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
               <div className="panel-heading">
                 <div className="search-box">
                   <Search size={17} />
@@ -1367,16 +1107,33 @@ export function Savio() {
                   ? "עריכת תנועה חוזרת משנה את סדרת התנועות החל מתאריך המקור."
                   : "Editing a recurring entry changes its series from the original date."}
               </p>
-              <SpendingAnalytics
-                transactions={data.transactions}
-                month={month}
-                he={he}
-                money={money}
-              />
+              <details className="transaction-analytics">
+                <summary>
+                  {he
+                    ? "ניתוח הוצאות והשוואה חודשית"
+                    : "Spending analytics & monthly comparison"}
+                </summary>{" "}
+                <SpendingAnalytics
+                  transactions={data.transactions}
+                  month={month}
+                  he={he}
+                  money={money}
+                />
+              </details>
             </article>
           )}
           {tab === "shifts" && (
             <>
+              <ReferenceWork
+                data={data}
+                month={month}
+                now={now}
+                busy={busy}
+                onStart={startShift}
+                onStop={stopShift}
+                onPause={togglePause}
+                onManual={() => setEditor({ kind: "shift" })}
+              />
               <div className="section-toolbar">
                 <div>
                   <h2>{money(pay)}</h2>
@@ -1400,77 +1157,48 @@ export function Savio() {
                   </button>
                 </div>
               </div>
-              <div className="panel">
-                <h2>{he ? "טיימר משמרת" : "Shift timer"}</h2>
-                {activeShift ? (
-                  <div className="timer">
-                    <span className="live-dot" />
-                    <strong>
-                      {
-                        data.workplaces.find(
-                          (w) => w.id === activeShift.workplaceId,
-                        )?.name
-                      }
-                    </strong>
-                    <span>{elapsedLabel(activeShift.start, now)}</span>
-                    <button
-                      className="primary"
-                      disabled={busy}
-                      onClick={stopShift}
-                    >
-                      <Square size={16} />
-                      {he ? "סיום משמרת" : "Stop shift"}
-                    </button>
-                  </div>
-                ) : (
-                  <div className="workplaces">
-                    {data.workplaces.map((w) => (
-                      <div className="workplace" key={w.id}>
-                        <div className="grow">
-                          <strong>{w.name}</strong>
-                          <p>
-                            {money(w.wage)} / {he ? "שעה" : "hour"}
-                          </p>
-                        </div>
-                        <button
-                          className="secondary"
-                          disabled={busy}
-                          onClick={() => startShift(w.id)}
-                        >
-                          <Play size={15} />
-                          {he ? "התחלה" : "Start"}
-                        </button>
-                        <button
-                          className="icon-button"
-                          aria-label={t.edit}
-                          onClick={() =>
-                            setEditor({ kind: "workplace", value: w })
-                          }
-                        >
-                          <Pencil size={15} />
-                        </button>
-                        <button
-                          className="icon-button"
-                          aria-label={t.delete}
-                          onClick={() => remove("workplaces", w.id)}
-                        >
-                          <Trash2 size={15} />
-                        </button>
+              <details className="workplace-manager">
+                <summary>
+                  {he
+                    ? "מקומות עבודה והגדרות שכר"
+                    : "Workplaces & payroll settings"}
+                </summary>
+                <div className="workplaces">
+                  {data.workplaces.map((w) => (
+                    <div className="workplace" key={w.id}>
+                      <div className="grow">
+                        <strong>{w.name}</strong>
+                        <p>
+                          {money(w.wage)} / {he ? "שעה" : "hour"}
+                        </p>
                       </div>
-                    ))}
-                  </div>
-                )}
-                {!data.workplaces.length && (
-                  <Empty
-                    title={he ? "איפה אתם עובדים?" : "Where do you work?"}
-                    description={
-                      he
-                        ? "הוסיפו מקום עבודה ושכר שעתי כדי להתחיל."
-                        : "Add a workplace and hourly wage to start tracking."
-                    }
-                  />
-                )}
-              </div>
+                      <button
+                        className="icon-button"
+                        aria-label={t.edit}
+                        onClick={() =>
+                          setEditor({ kind: "workplace", value: w })
+                        }
+                      >
+                        <Pencil size={16} />
+                      </button>
+                      <button
+                        className="icon-button"
+                        aria-label={t.delete}
+                        onClick={() => remove("workplaces", w.id)}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))}
+                  {!data.workplaces.length && (
+                    <p className="muted small">
+                      {he
+                        ? "הוסיפו מקום עבודה כדי להגדיר כללי שכר."
+                        : "Add a workplace to set your payroll rules."}
+                    </p>
+                  )}
+                </div>
+              </details>
               <article className="panel spaced">
                 <h2>{he ? "דוח שעות חודשי" : "Monthly timesheet"}</h2>
                 <div className="table-scroll">
@@ -1644,94 +1372,14 @@ export function Savio() {
             </div>
           )}
           {tab === "budgets" && (
-            <div className="budgets-grid">
-              {categories.map((category) => {
-                const spent = txs
-                    .filter(
-                      (t) => t.kind === "expense" && t.category === category,
-                    )
-                    .reduce((n, t) => n + t.amount, 0),
-                  budget =
-                    data.budgets[month + ":" + category] ??
-                    data.budgets["default:" + category] ??
-                    0;
-                const [y, m] = month.split("-").map(Number),
-                  previous = new Date(y, m - 2, 15),
-                  prevKey = `${previous.getFullYear()}-${String(previous.getMonth() + 1).padStart(2, "0")}`,
-                  prev = monthTransactions(data.transactions, prevKey)
-                    .filter(
-                      (t) => t.kind === "expense" && t.category === category,
-                    )
-                    .reduce((n, t) => n + t.amount, 0);
-                return (
-                  <article className="panel" key={category}>
-                    <h3>{categoryLabel(category, he)}</h3>
-                    <div className="goal-values">
-                      <strong>{money(spent)}</strong>
-                      <span> / {money(budget)}</span>
-                    </div>
-                    <div
-                      className={
-                        "progress " + (spent > budget ? "over-budget" : "")
-                      }
-                    >
-                      <i
-                        style={{
-                          width:
-                            (budget
-                              ? Math.min(100, (spent / budget) * 100)
-                              : 0) + "%",
-                        }}
-                      />
-                    </div>
-                    <p className="small muted">
-                      {he ? "חודש קודם" : "Previous month"}: {money(prev)} ·{" "}
-                      {prev
-                        ? `${Math.round(((spent - prev) / prev) * 100)}%`
-                        : "—"}
-                    </p>
-                    <form
-                      onSubmit={async (e) => {
-                        e.preventDefault();
-                        const amount = Number(
-                          new FormData(e.currentTarget).get("budget"),
-                        );
-                        await commit({
-                          ...data,
-                          budgets: {
-                            ...data.budgets,
-                            [month + ":" + category]: amount,
-                          },
-                        });
-                      }}
-                    >
-                      <Field label={t.budget}>
-                        <div className="input-action">
-                          <input
-                            name="budget"
-                            aria-label={category + " budget"}
-                            type="number"
-                            min="0"
-                            max="1000000000"
-                            step="0.01"
-                            defaultValue={budget}
-                            key={month}
-                            required
-                          />
-                          <button
-                            className="icon-button"
-                            disabled={busy}
-                            aria-label={t.save}
-                          >
-                            <Check size={18} />
-                          </button>
-                        </div>
-                      </Field>
-                    </form>
-                  </article>
-                );
-              })}
-            </div>
+            <BudgetScreen
+              data={data}
+              month={month}
+              categories={categories}
+              money={money}
+              onSave={commit}
+              busy={busy}
+            />
           )}
           {tab === "calendar" && (
             <FinancialCalendar
@@ -1752,8 +1400,8 @@ export function Savio() {
                   <span className="eyebrow">YOUR FINANCIAL COACH</span>
                   <h2>
                     {he
-                      ? "מרחב לשאלות גדולות."
-                      : "Big questions. Clearer possibilities."}
+                      ? "הדרך הנכונה לכסף שלך"
+                      : "A better path for your money"}
                   </h2>
                   <p>
                     {aiAvailable
@@ -1763,6 +1411,30 @@ export function Savio() {
                       : t.noAI}
                   </p>
                 </div>
+                {!chat.length && (
+                  <div className="ai-suggestions">
+                    {[
+                      he
+                        ? "איך לחסוך יותר החודש?"
+                        : "How can I save more this month?",
+                      he
+                        ? "איך מתכננים תקציב חודשי?"
+                        : "How do I plan a monthly budget?",
+                      he
+                        ? "כמה שעות עבודה עולה הקנייה הבאה?"
+                        : "How much work does my next purchase cost?",
+                      he
+                        ? "איך מתחילים לבנות הרגלי חיסכון?"
+                        : "How do I build a savings habit?",
+                    ].map((text) => (
+                      <button onClick={() => setQuestion(text)} key={text}>
+                        <Sparkles size={17} />
+                        {text}
+                        <ArrowRight size={15} />
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <div className="chat-messages" aria-live="polite">
                   {chat.map((c, i) => (
                     <div
@@ -1945,8 +1617,49 @@ export function Savio() {
             </section>
           )}
           {tab === "settings" && (
-            <SettingsScreen data={data} onSave={commit} busy={busy} />
+            <SettingsScreen
+              data={data}
+              onSave={commit}
+              busy={busy}
+              onWelcome={() => setTab("welcome")}
+              onAI={() => setTab("ai")}
+            />
           )}
+          {tab === "overview" &&
+            backupDue &&
+            Boolean(
+              data.transactions.length ||
+              data.shifts.length ||
+              data.goals.length ||
+              data.reminders.length ||
+              Object.keys(data.budgets).length,
+            ) && (
+              <div className="backup-reminder">
+                <ShieldCheck size={20} />
+                <div className="grow">
+                  <strong>
+                    {he
+                      ? "הנתונים שלך ראויים לגיבוי"
+                      : "Your records deserve a backup"}
+                  </strong>
+                  <span>
+                    {he
+                      ? "אחסון הדפדפן אינו קבוע ואינו מוצפן. שמרו עותק פרטי."
+                      : "Browser storage is not permanent or encrypted. Keep a private copy."}
+                  </span>
+                </div>
+                <button
+                  className="secondary"
+                  onClick={() => {
+                    exportBackup(data);
+                    setBackupDue(false);
+                  }}
+                >
+                  <Download size={16} />
+                  {he ? "גיבוי עכשיו" : "Back up now"}
+                </button>
+              </div>
+            )}
           <footer>
             <span className="footer-brand">
               SAVIO<span>●</span>
@@ -1963,6 +1676,15 @@ export function Savio() {
           </footer>
         </main>
       </div>
+      {tab === "transactions" && (
+        <button
+          className="floating-add"
+          aria-label={t.add}
+          onClick={() => setEditor({ kind: "transaction" })}
+        >
+          <Plus size={27} />
+        </button>
+      )}
       <nav
         className="bottom-nav"
         aria-label={he ? "ניווט ראשי" : "Primary navigation"}

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./v3.css";
+import "./approved.css";
 export const metadata: Metadata = {
   title: "SAVIO 3.0 — הכסף שלך. העתיד שלך.",
   description: "Your money. Your future. Personal finance, shifts and savings.",
@@ -29,7 +30,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="he" dir="rtl" suppressHydrationWarning>
       <body>{children}</body>
     </html>
   );

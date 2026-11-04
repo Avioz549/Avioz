@@ -1,7 +1,24 @@
 import { test, expect, type Page } from "@playwright/test";
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    if (!localStorage.getItem("savio-local-v1"))
+      localStorage.setItem(
+        "savio-local-v1",
+        JSON.stringify({
+          transactions: [],
+          workplaces: [],
+          shifts: [],
+          goals: [],
+          budgets: {},
+          reminders: [],
+          profile: { name: "", currency: "ILS", language: "en", theme: "dark" },
+        }),
+      );
+  });
+});
 async function open(page: Page, tab = "overview") {
   await page.goto("/?tab=" + tab);
-  await expect(page.locator("h1")).toBeVisible();
+  await expect(page.locator(".main-content")).toBeVisible();
 }
 async function transaction(
   page: Page,
@@ -47,11 +64,15 @@ test("real records persist and drive the balance, search, editing, analytics and
   await page.getByRole("button", { name: "Transactions", exact: true }).click();
   await page.getByPlaceholder("Search transactions…").fill("Groceries");
   await expect(page.locator(".transaction-row")).toHaveCount(1);
+  await page.locator(".row-menu>summary").first().click();
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   const d = page.getByRole("dialog");
   await d.getByLabel("Amount").fill("300");
   await d.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.locator(".transaction-amount")).toContainText("300");
+  await page
+    .getByText("Spending analytics & monthly comparison", { exact: true })
+    .click();
   await expect(
     page.getByRole("heading", { name: "Where your money goes" }),
   ).toBeVisible();
@@ -72,7 +93,9 @@ test("work retains overnight rules, unpaid breaks, estimates, timer and editing"
 }) => {
   await open(page, "shifts");
   await workplace(page);
-  await page.getByRole("button", { name: "Log shift", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Manual shift entry", exact: true })
+    .click();
   const d = page.getByRole("dialog"),
     month = new Date().toLocaleDateString("en-CA").slice(0, 7);
   await d.getByLabel("Start (local time)").fill(month + "-01T20:00");
@@ -92,8 +115,22 @@ test("work retains overnight rules, unpaid breaks, estimates, timer and editing"
   await expect(page.locator("tbody")).toContainText("600");
   await page.getByRole("button", { name: "Start", exact: true }).click();
   await expect(page.locator(".timer")).toBeVisible();
+  await page.getByRole("button", { name: "Pause shift", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Resume shift", exact: true }),
+  ).toBeVisible();
+  const frozen = await page.locator(".reference-timer").textContent();
   await page.reload();
   await expect(page.locator(".timer")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Resume shift", exact: true }),
+  ).toBeVisible();
+  await page.waitForTimeout(1100);
+  await expect(page.locator(".reference-timer")).toHaveText(frozen!);
+  await page.getByRole("button", { name: "Resume shift", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Pause shift", exact: true }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Stop shift", exact: true }).click();
   await expect(page.locator("tbody tr")).toHaveCount(2);
 });
@@ -109,6 +146,7 @@ test("savings contributions, undated goals, plan changes and purchase calculator
   await d.getByLabel("Planned monthly contribution").fill("500");
   await d.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.locator(".goal-card")).toContainText("No target date");
+  await page.locator(".goal-plan-details>summary").first().click();
   await page.getByRole("button", { name: "Contribute", exact: true }).click();
   await d.getByLabel("Amount").fill("500");
   await d.getByRole("button", { name: "Save", exact: true }).click();
@@ -130,10 +168,13 @@ test("budgets, reminder CRUD and challenges remain usable", async ({
   page,
 }) => {
   await open(page, "budgets");
-  const budget = page.locator(".budgets-grid .panel").first();
-  await budget.getByRole("spinbutton").fill("500");
-  await budget.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(budget.locator(".goal-values")).toContainText("500");
+  await page
+    .getByRole("button", { name: "Set category budget", exact: true })
+    .click();
+  const budgetDialog = page.getByRole("dialog");
+  await budgetDialog.getByLabel("Monthly budget").fill("500");
+  await budgetDialog.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.locator(".budget-ratio")).toContainText("500");
   await page.getByRole("button", { name: "Calendar", exact: true }).click();
   await page.getByRole("button", { name: "New reminder", exact: true }).click();
   const d = page.getByRole("dialog");
@@ -178,11 +219,18 @@ test("iPhone bottom navigation, More screens, readable forms, RTL and light mode
     .click();
   await page.getByRole("button", { name: /^Settings/ }).click();
   await expect(
-    page.getByRole("heading", { name: "Your preferences" }),
+    page.getByRole("button", { name: /^Profile & personal details/ }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Change language" }).click();
+  await page
+    .getByRole("button", { name: /^Profile & personal details/ })
+    .click();
+  const prefs = page.getByRole("dialog");
+  await prefs.getByLabel("Language", { exact: true }).selectOption("he");
+  await prefs.getByLabel("Appearance", { exact: true }).selectOption("light");
+  await prefs
+    .getByRole("button", { name: "Save preferences", exact: true })
+    .click();
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
-  await page.getByRole("button", { name: "Toggle theme" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await page
     .locator(".bottom-nav")
@@ -219,7 +267,8 @@ test("legacy V2 migration preserves every record and original browser copy", asy
 }) => {
   await page.addInitScript(() => {
     const key = "savio-local-v1";
-    if (!localStorage.getItem(key))
+    if (!localStorage.getItem("test-legacy-source")) {
+      localStorage.setItem("test-legacy-source", "1");
       localStorage.setItem(
         key,
         JSON.stringify({
@@ -246,6 +295,7 @@ test("legacy V2 migration preserves every record and original browser copy", asy
           },
         }),
       );
+    }
   });
   await open(page);
   await expect(page.locator(".hero-balance")).toContainText("7,000");
@@ -264,6 +314,9 @@ test("JSON restore is reviewed, malformed input changes nothing, recovery histor
   await open(page);
   await transaction(page, "Preserved record", "100", "income");
   await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Restore & recovery", exact: true })
+    .click();
   await page.getByLabel("Choose backup file").setInputFiles({
     name: "invalid.json",
     mimeType: "application/json",
@@ -291,7 +344,10 @@ test("JSON restore is reviewed, malformed input changes nothing, recovery histor
     mimeType: "application/json",
     buffer: Buffer.from(JSON.stringify(data)),
   });
-  const d = page.getByRole("dialog");
+  const d = page.getByRole("dialog", {
+    name: "Review before restoring",
+    exact: true,
+  });
   await expect(d).toHaveAccessibleName("Review before restoring");
   await expect(
     d.getByRole("button", { name: "Restore reviewed backup" }),
@@ -300,7 +356,17 @@ test("JSON restore is reviewed, malformed input changes nothing, recovery histor
   await d.getByRole("button", { name: "Restore reviewed backup" }).click();
   await expect(d).not.toBeVisible();
   await page.reload();
+  await page
+    .getByRole("button", { name: /^Profile & personal details/ })
+    .click();
   await expect(page.getByLabel("Your name")).toHaveValue("Restored name");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Close", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Restore & recovery", exact: true })
+    .click();
   await page
     .getByRole("button", { name: "Recovery history", exact: true })
     .click();
@@ -311,6 +377,11 @@ test("JSON restore is reviewed, malformed input changes nothing, recovery histor
     .click();
   await d.getByRole("checkbox").check();
   await d.getByRole("button", { name: "Restore reviewed backup" }).click();
+  await page
+    .getByRole("dialog", { name: "Backup & restore", exact: true })
+    .getByRole("button", { name: "Close", exact: true })
+    .first()
+    .click();
   await page.getByRole("button", { name: "Home", exact: true }).click();
   await expect(page.locator(".hero-balance")).toContainText("100");
   const dl = page.waitForEvent("download");
@@ -352,7 +423,7 @@ test("broken legacy records can be exported and safely restored without being er
   expect(
     await page.evaluate(() => localStorage.getItem("savio-local-v1")),
   ).toBe('{"broken":true}');
-  await page.getByLabel("Choose backup file").setInputFiles({
+  await page.locator('input[type="file"]').setInputFiles({
     name: "valid.json",
     mimeType: "application/json",
     buffer: Buffer.from(
@@ -373,7 +444,9 @@ test("broken legacy records can be exported and safely restored without being er
   });
   const d = page.getByRole("dialog");
   await d.getByRole("checkbox").check();
-  await d.getByRole("button", { name: "Restore reviewed backup" }).click();
+  await d
+    .getByRole("button", { name: /Restore reviewed backup|שחזור הגיבוי שנבדק/ })
+    .click();
   await expect(page.locator("h1")).toContainText("Recovered");
   expect(
     await page.evaluate(() => localStorage.getItem("savio-local-v1")),
@@ -399,7 +472,7 @@ test("AI has local insights without authentication; retired auth routes redirect
   await page.goto("/login");
   await expect(page).toHaveURL(/tab=settings/);
   await expect(
-    page.getByRole("heading", { name: "Backup & restore" }),
+    page.getByRole("button", { name: "Restore & recovery", exact: true }),
   ).toBeVisible();
 });
 test("installed shell opens offline with local records and never caches financial data", async ({
@@ -450,7 +523,7 @@ test("small and large iPhone widths retain unclipped navigation and action contr
     for (const selector of [
       ".heading-actions",
       ".month-picker",
-      ".balance-hero",
+      ".reference-balance",
       ".bottom-nav",
     ]) {
       const box = await page.locator(selector).boundingBox();

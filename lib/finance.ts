@@ -30,6 +30,7 @@ export const shiftSchema = z
     paidBreak: z.boolean(),
     premium: z.boolean(),
     legacyGross: z.number().min(0).max(1e9).optional(),
+    pauseStartedAt: z.iso.datetime({ offset: true }).optional(),
   })
   .refine(
     (s) => !s.end || new Date(s.end).getTime() > new Date(s.start).getTime(),
@@ -115,13 +116,17 @@ export function emptyData(): FinanceData {
     goals: [],
     budgets: {},
     reminders: [],
-    profile: { name: "", currency: "ILS", language: "en", theme: "dark" },
+    profile: { name: "", currency: "ILS", language: "he", theme: "dark" },
   };
 }
 export function shiftPay(shift: Shift, workplace: Workplace, now = new Date()) {
   const elapsed = Math.max(
     0,
-    ((shift.end ? Date.parse(shift.end) : now.getTime()) -
+    ((shift.end
+      ? Date.parse(shift.end)
+      : shift.pauseStartedAt && !shift.paidBreak
+        ? Math.min(Date.parse(shift.pauseStartedAt), now.getTime())
+        : now.getTime()) -
       Date.parse(shift.start)) /
       3600000,
   );

@@ -2,7 +2,9 @@
 
 הכסף שלך. העתיד שלך.
 
-A single-person, local-first Next.js finance application. No registration, login, Supabase project or database configuration is required. Home, Transactions, Work, Savings and More form the five safe-area-aware mobile tabs; desktop uses a sidebar. English LTR and Hebrew RTL, light/dark modes and iPhone installation are supported.
+See [the approved eight-screen design implementation](docs/APPROVED-DESIGN.md) and [the actual screen captures](docs/screenshots/approved/README.md).
+
+A single-person, local-first Next.js finance application. No registration, login, Supabase project or database configuration is required. Home, Transactions, Work, Savings and More form the five safe-area-aware mobile tabs; desktop uses a sidebar. New installations start in Hebrew RTL with a welcome flow; English LTR, existing language preferences, light/dark modes and iPhone installation are supported.
 
 ## Open the application
 
@@ -38,7 +40,7 @@ Stale tabs cannot overwrite a newer save. Reload before retrying a conflict. Inv
 
 - Personalized dashboard, exact recorded cash flow, selected-month charts, recent transactions, expected gross pay, savings progress and local insights.
 - Transactions with category/type filters, search, editing/deletion, monthly recurring schedules, CSV export, category analytics and six-month comparisons.
-- Workplaces, persistent timers, manual/overnight shifts, paid/unpaid breaks, configurable overtime tiers and manually selected weekend/holiday premiums. Gross estimates exclude taxes and deductions. Rules apply per shift; no universal Israeli statutory payroll, weekly overtime or net-pay calculation is implied. Imported historical gross estimates are retained until explicitly edited.
+- Workplaces, persistent timers, manual/overnight shifts, paid/unpaid breaks, persisted unpaid pause/resume, configurable overtime tiers and manually selected weekend/holiday premiums. Gross estimates exclude taxes and deductions. Rules apply per shift; no universal Israeli statutory payroll, weekly overtime or net-pay calculation is implied. Imported historical gross estimates are retained until explicitly edited.
 - Multiple goals, dated or undated targets, contributions and conservative/balanced/accelerated plans. Goals share the selected month's positive surplus proportionally. Recorded contributions do not verify a bank balance or transfer money. Display currency changes formatting only; no exchange conversion occurs.
 - Month/category budgets, calendar and reminder CRUD, foreground notifications with permission, challenges calculated from real records, purchase-price-to-work-hours calculator and profile preferences.
 - Installable shell with proper PNG and Apple touch icons, standalone display and iPhone safe areas. The service worker caches only generic shell/build assets, never API responses or financial records. After a successful online installation, the local workspace can reopen offline. Real Safari installation, storage behavior and notification support vary by iOS version and require device testing.

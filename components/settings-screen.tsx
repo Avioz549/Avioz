@@ -1,156 +1,291 @@
 "use client";
-import { Download, Smartphone, Trash2, ShieldCheck } from "lucide-react";
+import { useState } from "react";
+import {
+  UserRound,
+  Globe,
+  Download,
+  Upload,
+  FileSpreadsheet,
+  Bell,
+  Palette,
+  Coins,
+  Sparkles,
+  ChevronLeft,
+  ChevronRight,
+  ShieldCheck,
+  Smartphone,
+  Info,
+  Trash2,
+} from "lucide-react";
 import { emptyData, csvExport, type FinanceData } from "@/lib/finance";
 import { BackupManager, exportBackup } from "./backup-manager";
-import { Field } from "./ui";
+import { Field, Modal } from "./ui";
 export function SettingsScreen({
   data,
   onSave,
   busy,
+  onWelcome,
+  onAI,
 }: {
   data: FinanceData;
   onSave: (d: FinanceData) => Promise<boolean | undefined>;
   busy: boolean;
+  onWelcome: () => void;
+  onAI: () => void;
 }) {
   const he = data.profile.language === "he",
-    tr = (en: string, heb: string) => (he ? heb : en);
+    tr = (en: string, heb: string) => (he ? heb : en),
+    [pane, setPane] = useState<
+      "profile" | "backup" | "install" | "about" | null
+    >(null),
+    [notice, setNotice] = useState("");
+  const Arrow = he ? ChevronLeft : ChevronRight;
+  const row = (
+    label: string,
+    detail: string,
+    Icon: typeof UserRound,
+    action: () => void,
+  ) => (
+    <button className="settings-row" key={label} onClick={action}>
+      <Icon size={20} />
+      <span>{label}</span>
+      {detail && <small>{detail}</small>}
+      <Arrow size={16} />
+    </button>
+  );
   return (
-    <div className="settings-grid">
-      <div>
-        <article className="panel">
-          <div className="panel-heading">
-            <div>
-              <span className="eyebrow">
-                {tr("MAKE IT YOURS", "בדיוק בשבילך")}
-              </span>
-              <h2>{tr("Your preferences", "ההעדפות שלך")}</h2>
-            </div>
-            <ShieldCheck className="positive" />
-          </div>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              const f = new FormData(e.currentTarget);
-              void onSave({
-                ...data,
-                profile: {
-                  name: String(f.get("name")),
-                  currency: f.get("currency") as "ILS",
-                  language: f.get("language") as "en",
-                  theme: f.get("theme") as "dark",
-                },
-              });
-            }}
-          >
-            <Field label={tr("Your name", "השם שלך")}>
-              <input
-                name="name"
-                maxLength={100}
-                autoComplete="given-name"
-                defaultValue={data.profile.name}
-              />
-            </Field>
-            <Field label={tr("Display currency", "מטבע לתצוגה")}>
-              <select name="currency" defaultValue={data.profile.currency}>
-                {["ILS", "USD", "EUR", "GBP"].map((c) => (
-                  <option key={c}>{c}</option>
-                ))}
-              </select>
-            </Field>
-            <p className="small muted">
+    <section className="reference-settings">
+      <div className="settings-row-group">
+        {row(
+          tr("Profile & personal details", "פרופיל ופרטים אישיים"),
+          data.profile.name,
+          UserRound,
+          () => setPane("profile"),
+        )}
+        {row(tr("Language", "שפה"), he ? "עברית" : "English", Globe, () =>
+          setPane("profile"),
+        )}
+        {row(tr("Currency", "מטבע"), data.profile.currency, Coins, () =>
+          setPane("profile"),
+        )}
+      </div>
+      <div className="settings-row-group">
+        {row(
+          tr("Export JSON backup", "גיבוי נתונים (JSON)"),
+          "",
+          Download,
+          () => {
+            exportBackup(data);
+            setNotice(
+              tr(
+                "JSON backup export requested. Keep the file somewhere private.",
+                "ייצוא גיבוי JSON הופעל. שמרו את הקובץ במקום פרטי.",
+              ),
+            );
+          },
+        )}
+        {row(tr("Restore & recovery", "שחזור נתונים"), "", Upload, () =>
+          setPane("backup"),
+        )}
+        {row(
+          tr("Export transactions CSV", "ייצוא תנועות (CSV)"),
+          "",
+          FileSpreadsheet,
+          () => {
+            const url = URL.createObjectURL(
+              new Blob([csvExport(data.transactions)], {
+                type: "text/csv;charset=utf-8",
+              }),
+            );
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "SAVIO-transactions.csv";
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+          },
+        )}
+      </div>
+      <div className="settings-row-group">
+        {row(tr("Notifications", "התראות"), " ", Bell, async () => {
+          try {
+            if (!("Notification" in window)) {
+              setNotice(
+                tr(
+                  "Notifications are not supported in this browser.",
+                  "הדפדפן אינו תומך בהתראות.",
+                ),
+              );
+              return;
+            }
+            const permission = await Notification.requestPermission();
+            setNotice(
+              permission === "granted"
+                ? tr(
+                    "Foreground reminders enabled. Keep SAVIO open for due-date checks.",
+                    "התזכורות הופעלו. השאירו את SAVIO פתוח לבדיקת תאריכי היעד.",
+                  )
+                : tr(
+                    "Notification permission was not granted.",
+                    "לא ניתן אישור להתראות.",
+                  ),
+            );
+          } catch {
+            setNotice(
+              tr(
+                "Notifications are unavailable here.",
+                "התראות אינן זמינות כאן.",
+              ),
+            );
+          }
+        })}
+        {row(
+          tr("Appearance", "מראה"),
+          data.profile.theme === "dark"
+            ? tr("Dark", "כהה")
+            : tr("Light", "בהיר"),
+          Palette,
+          () => setPane("profile"),
+        )}
+        {row(
+          "SAVIO AI",
+          tr("Financial coach", "המאמן הפיננסי שלך"),
+          Sparkles,
+          onAI,
+        )}
+      </div>
+      <div className="settings-row-group">
+        {row(tr("Install on iPhone", "הוספה למסך הבית"), "", Smartphone, () =>
+          setPane("install"),
+        )}
+        {row(tr("About SAVIO", "על SAVIO"), "3.0", Info, () =>
+          setPane("about"),
+        )}
+        {row(tr("Welcome screen", "מסך הפתיחה"), "", ShieldCheck, onWelcome)}
+      </div>
+      <p className="settings-storage-note">
+        <ShieldCheck size={15} />
+        {tr(
+          "Local storage is not permanent or encrypted. Keep private JSON backups.",
+          "האחסון המקומי אינו קבוע ואינו מוצפן. שמרו גיבויי JSON פרטיים.",
+        )}
+      </p>
+      <button
+        className="danger"
+        disabled={busy}
+        onClick={async () => {
+          if (
+            confirm(
+              tr(
+                "Delete current financial records? Export a backup first. Recovery versions and the original V2 copy remain until browser data is cleared.",
+                "למחוק את הרשומות הנוכחיות? ייצאו גיבוי תחילה. היסטוריית השחזור והעותק מגרסה 2 נשארים עד לניקוי נתוני הדפדפן.",
+              ),
+            )
+          ) {
+            const next = emptyData();
+            next.profile = data.profile;
+            await onSave(next);
+          }
+        }}
+      >
+        <Trash2 size={16} />
+        {tr("Delete current financial records", "מחיקת הרשומות הנוכחיות")}
+      </button>
+      {notice && (
+        <p role="status" className="notice">
+          {notice}
+        </p>
+      )}
+      {pane && (
+        <Modal
+          title={
+            pane === "profile"
+              ? tr("Your preferences", "ההעדפות שלך")
+              : pane === "backup"
+                ? tr("Backup & restore", "גיבוי ושחזור")
+                : pane === "install"
+                  ? tr("Install SAVIO", "התקנת SAVIO")
+                  : tr("About SAVIO", "על SAVIO")
+          }
+          onClose={() => setPane(null)}
+        >
+          {pane === "profile" ? (
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const f = new FormData(e.currentTarget);
+                if (
+                  await onSave({
+                    ...data,
+                    profile: {
+                      name: String(f.get("name")),
+                      currency: f.get("currency") as "ILS",
+                      language: f.get("language") as "en",
+                      theme: f.get("theme") as "dark",
+                    },
+                  })
+                )
+                  setPane(null);
+              }}
+            >
+              <Field label={tr("Your name", "השם שלך")}>
+                <input
+                  name="name"
+                  maxLength={100}
+                  defaultValue={data.profile.name}
+                />
+              </Field>
+              <Field label={tr("Display currency", "מטבע לתצוגה")}>
+                <select name="currency" defaultValue={data.profile.currency}>
+                  {["ILS", "USD", "EUR", "GBP"].map((c) => (
+                    <option key={c}>{c}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label={tr("Language", "שפה")}>
+                <select name="language" defaultValue={data.profile.language}>
+                  <option value="he">עברית</option>
+                  <option value="en">English</option>
+                </select>
+              </Field>
+              <Field label={tr("Appearance", "מראה")}>
+                <select name="theme" defaultValue={data.profile.theme}>
+                  <option value="dark">{tr("Dark", "כהה")}</option>
+                  <option value="light">{tr("Light", "בהיר")}</option>
+                </select>
+              </Field>
+              <p className="small muted">
+                {tr(
+                  "Currency changes display units only, not exchange rates.",
+                  "המטבע משנה תצוגה בלבד, ללא המרת שערים.",
+                )}
+              </p>
+              <button className="primary full" disabled={busy}>
+                {tr("Save preferences", "שמירת העדפות")}
+              </button>
+            </form>
+          ) : pane === "backup" ? (
+            <BackupManager data={data} onSave={onSave} />
+          ) : pane === "install" ? (
+            <p>
               {tr(
-                "Display units only. No exchange-rate conversion is performed; keep records in one currency.",
-                "שינוי תצוגה בלבד, ללא המרת שערים. שמרו את הרשומות במטבע אחד.",
+                "Open SAVIO in iPhone Safari → Share → Add to Home Screen. Export a backup before changing addresses, browsers or devices.",
+                "פתחו את SAVIO ב־Safari ב־iPhone ← שיתוף ← הוספה למסך הבית. ייצאו גיבוי לפני מעבר כתובת, דפדפן או מכשיר.",
               )}
             </p>
-            <Field label={tr("Language", "שפה")}>
-              <select name="language" defaultValue={data.profile.language}>
-                <option value="en">English</option>
-                <option value="he">עברית</option>
-              </select>
-            </Field>
-            <Field label={tr("Appearance", "מראה")}>
-              <select name="theme" defaultValue={data.profile.theme}>
-                <option value="dark">{tr("Dark", "כהה")}</option>
-                <option value="light">{tr("Light", "בהיר")}</option>
-              </select>
-            </Field>
-            <button className="primary" disabled={busy}>
-              {tr("Save preferences", "שמירת העדפות")}
-            </button>
-          </form>
-        </article>
-        <article className="panel spaced">
-          <Smartphone className="positive" />
-          <h2>{tr("SAVIO on your Home Screen", "SAVIO במסך הבית שלך")}</h2>
-          <p className="muted">
-            {tr(
-              "On iPhone, open SAVIO in Safari, tap Share, then Add to Home Screen. Use the same address to keep access to this browser’s records. Export a backup before switching addresses or devices.",
-              "ב־iPhone פתחו את SAVIO ב־Safari, לחצו על שיתוף ואז ״הוספה למסך הבית״. השתמשו באותה כתובת כדי לשמור גישה לרשומות הדפדפן הזה. ייצאו גיבוי לפני החלפת כתובת או מכשיר.",
-            )}
-          </p>
-        </article>
-      </div>
-      <div>
-        <BackupManager data={data} onSave={onSave} />
-        <article className="panel spaced">
-          <h2>{tr("Export & manage records", "ייצוא וניהול נתונים")}</h2>
-          <p className="muted">
-            {tr(
-              "CSV exports all original transaction records. Recurring schedules appear once, not as duplicate historical payments.",
-              "ייצוא CSV כולל את כל רשומות התנועות המקוריות. תנועות חוזרות מופיעות פעם אחת, ללא יצירת תשלומי עבר כפולים.",
-            )}
-          </p>
-          <button
-            className="secondary"
-            onClick={() => {
-              const url = URL.createObjectURL(
-                new Blob([csvExport(data.transactions)], {
-                  type: "text/csv;charset=utf-8",
-                }),
-              );
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = "SAVIO-transactions.csv";
-              a.click();
-              setTimeout(() => URL.revokeObjectURL(url), 1000);
-            }}
-          >
-            <Download size={18} />
-            {tr("Export all transactions CSV", "ייצוא כל התנועות ל־CSV")}
-          </button>
-          <button
-            className="danger"
-            disabled={busy}
-            onClick={async () => {
-              if (
-                !confirm(
-                  tr(
-                    "Delete current financial records? Export a JSON backup first. On-device recovery versions and the original migrated V2 copy are kept until you clear site storage.",
-                    "למחוק את הנתונים הפיננסיים הנוכחיים? ייצאו גיבוי JSON תחילה. היסטוריית השחזור והעותק המקורי מגרסה 2 נשארים עד לניקוי אחסון האתר.",
-                  ),
-                )
-              )
-                return;
-              const next = emptyData();
-              next.profile = data.profile;
-              await onSave(next);
-            }}
-          >
-            <Trash2 size={18} />
-            {tr(
-              "Delete current financial records",
-              "מחיקת הנתונים הפיננסיים הנוכחיים",
-            )}
-          </button>
-          <button className="text-button" onClick={() => exportBackup(data)}>
-            {tr(
-              "Create a backup before making changes",
-              "יצירת גיבוי לפני ביצוע שינויים",
-            )}
-          </button>
-        </article>
-      </div>
-    </div>
+          ) : (
+            <div className="about-savio">
+              <strong>SAVIO</strong>
+              <p>הכסף שלך. העתיד שלך.</p>
+              <p className="muted">
+                {tr(
+                  "Version 3.0 · personal, local-first financial planning. No login, bank connection or verified bank balances.",
+                  "גרסה 3.0 · תכנון פיננסי אישי ומקומי. ללא התחברות, חיבור לבנק או יתרות בנק מאומתות.",
+                )}
+              </p>
+            </div>
+          )}
+        </Modal>
+      )}
+    </section>
   );
 }

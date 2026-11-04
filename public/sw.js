@@ -42,7 +42,11 @@ self.addEventListener("fetch", (event) => {
     url.pathname.startsWith("/api/")
   )
     return;
-  if (url.pathname.startsWith("/_next/static/")) {
+  if (
+    url.pathname.startsWith("/_next/static/") ||
+    (url.pathname === "/_next/image" &&
+      url.searchParams.get("url") === "/goal-photos.png")
+  ) {
     event.respondWith(
       caches.open(CACHE).then(async (cache) => {
         const saved = await cache.match(event.request);

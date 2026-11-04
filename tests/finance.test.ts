@@ -161,3 +161,21 @@ test("duplicate record IDs are rejected", () => {
     false,
   );
 });
+
+test("persisted unpaid pauses freeze gross and resume without losing break time", () => {
+  const active = {
+    ...s,
+    end: null,
+    pauseStartedAt: "2026-01-02T06:00:00Z",
+    breakMinutes: 0,
+  };
+  const paused = shiftPay(active, w, new Date("2026-01-02T07:00:00Z"));
+  assert.equal(paused.hours, 10);
+  const resumed = shiftPay(
+    { ...active, pauseStartedAt: undefined, breakMinutes: 60 },
+    w,
+    new Date("2026-01-02T07:00:00Z"),
+  );
+  assert.equal(resumed.hours, 10);
+  assert.equal(resumed.gross, paused.gross);
+});
