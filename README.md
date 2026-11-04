@@ -1,69 +1,56 @@
-# SAVIO 2.0
+# SAVIO 3.0
 
-See [the source audit](docs/SOURCE-AUDIT.md) for the ZIP analysis and fixes, and [deployment instructions](docs/DEPLOYMENT.md) for Vercel and hosted-service verification.
+הכסף שלך. העתיד שלך.
 
-A Next.js / TypeScript personal finance application with an English and Hebrew RTL interface, emerald/charcoal design, light mode, Recharts analytics, and a private local workspace. The original `index.html` is preserved; Next.js serves the application from `app/`.
+A single-person, local-first Next.js finance application. No registration, login, Supabase project or database configuration is required. Home, Transactions, Work, Savings and More form the five safe-area-aware mobile tabs; desktop uses a sidebar. English LTR and Hebrew RTL, light/dark modes and iPhone installation are supported.
 
-## Develop
+## Open the application
 
-Node 24 and npm 11 are validated in this environment.
+Use Node 24 and npm 11. From this directory:
 
 ```sh
 npm ci
 npm run dev
 ```
 
-Use the existing `/workspace/Avioz` checkout. Cloud tasks are already isolated; no additional worktree is needed. Webpack mode is deliberate: this cloud sandbox prevents Turbopack from binding its PostCSS helper socket.
+Open the address printed by Next.js. For an HTTPS website usable on an iPhone, import this branch into Vercel with the repository root as the project root. No environment variables are required for the app. See [deployment instructions](docs/DEPLOYMENT.md).
 
 ```sh
-npm test             # financial calculation and validation tests
-npm run typecheck
 npm run lint
-npm run test:db     # real PostgreSQL security checks in disposable Docker
+npm run typecheck
+npm test
 npm run build
+npm run test:e2e
 npm run start
-npm run test:e2e     # Chromium functional checks against the production build
 ```
 
-The browser tests use `/usr/bin/chromium` in this environment. For other machines, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` or install Playwright's Chromium and omit the executable override. Browser tests create isolated test records; no demo balances appear in the application.
+Browser tests use system Chromium when present or Playwright's installed browser. Install it on a new machine using `npx playwright install --with-deps chromium`. Use the existing checkout; cloud tasks are already isolated and do not need another worktree.
 
-## Cloud authentication and storage
+## Your records and backups
 
-Local workflows operate without credentials. Local data stays in browser storage, is not encrypted at rest, and is separate from signed-in account data. Export JSON before clearing browser data or switching devices. No silent local-data upload occurs on login.
+SAVIO 3 stores the existing financial data format in IndexedDB with atomic revision checks. An existing `savio-local-v1` localStorage record is migrated on the same origin without changing the original copy. V2 JSON exports, snapshot envelopes, V3 backups and full normalized legacy-table JSON exports can be restored after validation and explicit review. No Supabase data is deleted or fetched automatically. Export cloud records from the old app before switching to V3, then restore that JSON here.
 
-1. Create a Supabase project and run `supabase/schema.sql` in its SQL editor.
-2. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in the environment or an ignored `.env.local`. Both are public client configuration. Never put a service-role key in a `NEXT_PUBLIC_` variable.
-3. Enable email confirmation in Supabase Auth. Configure the site URL and allow `/auth/callback` redirects for development and your production Vercel domain. Configure an SMTP provider for production email delivery, CAPTCHA/abuse controls, and Supabase Auth rate limits for signup, password login and recovery.
-4. Account deletion uses the authenticated `delete_my_account` SQL function. No service-role key is required by the application. Deletion cascades to financial data and rate-limit rows.
-5. Allow your exact Supabase project hostname through the environment's network settings. The hostname cannot be determined until a project URL is supplied.
+Settings → Backup & restore exports JSON, previews a restore and offers the ten previous on-device saves. These copies are not external backups and vanish with site storage. SAVIO asks the browser for persistent storage where supported, but persistence is never guaranteed. Storage is not encrypted. Save JSON privately and export before clearing data, switching a domain, device, browser, preview URL or PWA storage context. Import the backup in the new context. A seven-day export reminder appears when financial records exist. “Last export” means an export was requested; the browser cannot verify you retained the file.
 
-Financial data is stored as one user-owned JSON aggregate in PostgreSQL. Owner RLS policies protect every operation; unauthenticated access is revoked. Server writes validate the complete aggregate with Zod; database checks constrain shape and size. Auth sessions use Supabase SSR cookies and refresh through `proxy.ts`. Account deletion is a narrowly scoped SQL function that can delete only the current authenticated user. Cloud reads/writes, email delivery, account deletion and two-user RLS isolation require a real configured project and have not yet been validated here.
+Stale tabs cannot overwrite a newer save. Reload before retrying a conflict. Invalid records fail safely and show recovery/export controls. A restore replaces the current workspace after explicit confirmation, with the old snapshot retained in local recovery history. Deleting current financial records also retains recovery and the V2 source copy; clear the site's storage to erase all on-device copies after exporting anything you want to keep.
 
-Before production, verify registration/confirmation, login/logout, recovery, refresh persistence, data deletion and account deletion with two disposable accounts. Confirm account B cannot select or mutate A's `finance_data` by calling Supabase directly. Financial aggregate writes use revision checks; stale writes return HTTP 409. Local tabs also reject overwrites when the browser snapshot changed. Reload before retrying a conflict.
+## Working features
 
-## Financial behavior
+- Personalized dashboard, exact recorded cash flow, selected-month charts, recent transactions, expected gross pay, savings progress and local insights.
+- Transactions with category/type filters, search, editing/deletion, monthly recurring schedules, CSV export, category analytics and six-month comparisons.
+- Workplaces, persistent timers, manual/overnight shifts, paid/unpaid breaks, configurable overtime tiers and manually selected weekend/holiday premiums. Gross estimates exclude taxes and deductions. Rules apply per shift; no universal Israeli statutory payroll, weekly overtime or net-pay calculation is implied. Imported historical gross estimates are retained until explicitly edited.
+- Multiple goals, dated or undated targets, contributions and conservative/balanced/accelerated plans. Goals share the selected month's positive surplus proportionally. Recorded contributions do not verify a bank balance or transfer money. Display currency changes formatting only; no exchange conversion occurs.
+- Month/category budgets, calendar and reminder CRUD, foreground notifications with permission, challenges calculated from real records, purchase-price-to-work-hours calculator and profile preferences.
+- Installable shell with proper PNG and Apple touch icons, standalone display and iPhone safe areas. The service worker caches only generic shell/build assets, never API responses or financial records. After a successful online installation, the local workspace can reopen offline. Real Safari installation, storage behavior and notification support vary by iOS version and require device testing.
 
-- Monthly totals include dated records and virtual monthly recurring occurrences, clamped to the month's final day. Edit/delete on a recurring record affects the entire series from its original date.
-- Available balance means recorded income minus expenses. It is not a connected bank balance. Currency preferences change display units only; no foreign-exchange conversion occurs.
-- Payroll is a gross estimate before deductions. Regular-hours thresholds, overtime tiers, and weekend/holiday multipliers are configurable per workplace. Premiums apply only when selected on a shift, multiplying the entire estimated gross. Rules apply per shift; weekly overtime, holiday calendars, statutory rest, pensions, tax and net-pay calculations are not implemented. Imported legacy shifts retain their original stored estimates until edited, because their premium selections were never saved. Set the correct contractual rules; do not treat defaults as Israeli legal advice.
-- Overnight shifts use explicit start/end dates; unpaid breaks are subtracted before overtime. Timer shifts persist across reloads. Breaks and premiums can be edited after stopping.
-- Savings plans use conservative (20%), balanced (35%), or accelerated (50%) shares of the selected month's positive surplus. Multiple goals share that allowance proportionally to their planned monthly contributions. Estimates recalculate on input changes and show required monthly funding toward the target date. Contributions record savings intent/activity; they do not move money or verify a bank balance.
-- CSV exports escape formulas; full JSON exports contain personal data and should be stored privately.
+## Optional AI
 
-## AI and privacy
+The app and deterministic insights work without AI configuration. AI requests are server-side only. Before each request, you can explicitly allow a minimal, locally calculated summary; without permission no financial context is sent. Names, transaction descriptions and complete records are excluded from the summary. Consent resets after each request; chat is not persisted.
 
-`SAVIO_AI_KEY` is an optional server-only OpenAI key; `SAVIO_AI_MODEL` defaults to `gpt-4.1-mini`. Allow `api.openai.com` if AI is enabled. The AI endpoint requires a signed-in user, same-origin requests, validated input and a database-backed 15-second request limit. A financial summary is loaded only when the user opts in for that request. Consent resets after each request. Without a key, the service returns an unavailable state; deterministic local surplus and savings insights still work. Chat is not persisted.
+Optional server variables: `SAVIO_AI_KEY`, `SAVIO_AI_MODEL` (existing `OPENAI_API_KEY`/`OPENAI_MODEL` are accepted). On production/public deployments, AI also requires `SAVIO_RATE_LIMIT_URL` and `SAVIO_RATE_LIMIT_TOKEN`, using an Upstash-compatible Redis REST API. This supplies distributed limits of 10 requests/IP/minute and 200 total/day. Missing or failed protection disables AI safely. These are request controls, not a complete abuse-prevention or authentication system. Use Vercel deployment protection if this website should be accessible only to you. Your financial data remains local, but a public AI endpoint consumes the deployment owner's provider credits.
 
-Account deletion has a database-backed 60-second request limit. Supabase Auth provides authentication endpoint rate limits; configure production thresholds in Supabase.
+Never prefix server keys or Redis tokens with `NEXT_PUBLIC_`. See `.env.example`. No live AI calls or Vercel deployment have been verified without configured service access.
 
-## PWA and notifications
+## History and validation
 
-The manifest, app icon and service worker support a public offline fallback. Financial pages, API responses and authentication requests are never cached by the service worker. Installation availability depends on browser support; offline editing is not supported. Browser notifications can be enabled where supported. While SAVIO is open, it checks recorded payments and incomplete reminders due today once a minute and sends one generic reminder per account/day without financial details. Background push delivery and scheduled reminders when the app is closed are not implemented. The financial calendar displays actual recorded and recurring payments and supports creating, editing, completing and deleting reminders.
-
-## Deployment
-
-Deploy this repository to Vercel as a Next.js application with `npm run build`. Configure the same environment variables and Supabase redirect URLs for the production domain, then redeploy when public Supabase variables change. Apply the SQL before enabling cloud storage. Never commit `.env.local` or keys.
-
-## Validation scope
-
-The local development workflow, production compilation and Chromium interactions can be checked without a remote database. Cloud authentication, email delivery, RLS isolation, AI provider calls and account deletion remain deployment prerequisites until credentials and project access are configured. Do not label those integrations production-verified based on the local tests.
+Historical SQL and the original ZIP audit are retained as references. They are not needed for SAVIO 3 runtime or deployment; the optional `npm run test:legacy-db` verifies that archived schema only. See [SAVIO 3 changes](docs/SAVIO-3.md), [verification](docs/VERIFICATION.md) and [deployment](docs/DEPLOYMENT.md).

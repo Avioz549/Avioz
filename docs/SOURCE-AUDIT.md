@@ -1,3 +1,5 @@
+> Historical SAVIO 2.0 audit. For current local-only behavior, read `SAVIO-3.md`, `DEPLOYMENT.md` and `VERIFICATION.md`. The original unrelated landing-page source is archived at `docs/legacy/original-index.html`; it is not the application entry point.
+
 # SAVIO 2.0 source audit
 
 Input: `SAVIO-2.0-source (1).zip`, extracted into an inspection directory without overwriting the published checkout. The archive contained a Next.js 15 app, nine normalized Supabase tables, separate authentication routes, a 25 KB dashboard component, and no lockfile or automated tests. Its README explicitly described missing product functionality; those statements were treated as reference material, not instructions to skip work.

@@ -5,12 +5,13 @@ import { monthTransactions, type Transaction } from "./finance";
 export function useReminders(
   transactions: Transaction[],
   reminders: { date: string; done: boolean }[],
-  accountId: string,
+  workspaceId: string,
   ready: boolean,
+  language: "en" | "he" = "en",
 ) {
   useEffect(() => {
     if (!ready) return;
-    const check = () => {
+    const check = async () => {
       if (!("Notification" in window) || Notification.permission !== "granted")
         return;
       const today = new Date().toLocaleDateString("en-CA");
@@ -21,21 +22,35 @@ export function useReminders(
         (r) => !r.done && r.date === today,
       ).length;
       if (!due.length && !reminderCount) return;
-      const key = `savio-reminder:${accountId}:${today}`;
+      const key = `savio-reminder:${workspaceId}:${today}`;
       try {
         if (localStorage.getItem(key)) return;
-        new Notification("SAVIO · Payment reminder", {
-          body: `You have ${due.length} recorded payment(s) and ${reminderCount} reminder(s) today. Review your financial calendar.`,
+        const title =
+          language === "he"
+            ? "SAVIO · תזכורת אישית"
+            : "SAVIO · Payment reminder";
+        const options = {
+          body:
+            language === "he"
+              ? `היום יש ${due.length} תשלומים מתועדים ו־${reminderCount} תזכורות. פתחו את לוח השנה הכלכלי.`
+              : `You have ${due.length} recorded payment(s) and ${reminderCount} reminder(s) today. Review your financial calendar.`,
           tag: "savio-due-payments",
-          icon: "/icon.svg",
-        });
+          icon: "/icons/icon-192.png",
+        };
+        const registration =
+          "serviceWorker" in navigator
+            ? await navigator.serviceWorker.getRegistration()
+            : undefined;
+        if (registration?.showNotification)
+          await registration.showNotification(title, options);
+        else new Notification(title, options);
         localStorage.setItem(key, "sent");
       } catch {
         /* Notification support and storage availability vary by browser. */
       }
     };
-    check();
-    const timer = setInterval(check, 60000);
+    void check();
+    const timer = setInterval(() => void check(), 60000);
     return () => clearInterval(timer);
-  }, [transactions, reminders, accountId, ready]);
+  }, [transactions, reminders, workspaceId, ready, language]);
 }

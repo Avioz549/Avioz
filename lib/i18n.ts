@@ -28,9 +28,7 @@ export const words = {
       "Your story starts here. Add your first record to see your finances come to life.",
     local: "Private local workspace",
     localSub:
-      "Records stay in this browser until you sign in. Export a backup before clearing browser data.",
-    login: "Sign in",
-    logout: "Sign out",
+      "Records stay on this device. Browser storage is not permanent or encrypted. Export private backups regularly.",
     newGoal: "New goal",
     newShift: "Log shift",
     workplace: "Add workplace",
@@ -90,8 +88,6 @@ export const words = {
     local: "סביבת עבודה מקומית ופרטית",
     localSub:
       "הנתונים נשמרים בדפדפן עד להתחברות. ייצאו גיבוי לפני ניקוי נתוני הדפדפן.",
-    login: "התחברות",
-    logout: "התנתקות",
     newGoal: "יעד חדש",
     newShift: "רישום משמרת",
     workplace: "הוספת מקום עבודה",

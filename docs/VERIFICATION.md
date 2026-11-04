@@ -1,18 +1,18 @@
-# Verification record
+# SAVIO 3.0 verification
 
-Validated in this cloud workspace on 4 November 2026 with Node 24 / npm 11:
+Current checks run in the managed workspace on 4 November 2026, Node 24 / npm 11:
 
-- Clean locked install: `npm ci` completed successfully.
-- `npm run lint`: Next.js ESLint checks passed with zero warnings.
-- `npm run typecheck`: passed.
-- `npm test`: 18 executed unit/regression tests passed, covering calculation precision, overnight payroll, configurable overtime, recurring month-end dates, goal projections, CSV injection escaping, duplicate IDs, legacy conversion, configuration URLs and long-running timers.
-- `npm run test:db`: passed against disposable PostgreSQL 17. Applied the uploaded source schema and applied the additive upgrade twice. Checked actual role-based isolation, cross-user writes/foreign ownership, revision conflicts, independent database rate limits, self-deletion and cascading deletion. Supabase Auth's role/claim plumbing was emulated locally for this test.
-- `npm run build`: production compilation and Next.js route generation passed.
-- `npm run test:e2e`: all 11 executed Chromium workflows passed. They cover transactions/persistence, editing/deleting, CSV export, overnight payroll, savings contributions, budgets, timers, Hebrew RTL, themes, reminder CRUD, navigation, unavailable auth states, data recovery, cross-tab conflicts, cross-origin mutation rejection and PWA assets. See `tests/browser/app.spec.ts` and Playwright output for current counts.
-- `npm audit --omit=dev --audit-level=moderate`: zero known production dependency vulnerabilities reported.
+- Locked dependency installation: `npm ci` completed successfully.
+- TypeScript route generation and checks: passed.
+- Strict Next.js ESLint: passed with zero warnings.
+- Unit suite: 24 executed tests passed. Includes existing finance/legacy regression tests plus IndexedDB migration preserving V2 copies, concurrent CAS rejection, ten-version retention/recovery, malformed-data preservation, backup roundtrips, failed-write non-mutation and AI no-consent data minimization.
+- Production Next.js build: passed, with no Supabase/auth runtime dependency.
+- Production dependency audit: zero known vulnerabilities reported.
+- Chromium tests exercise real records, editing/export, overnight shifts, breaks, timers across reload, goal contributions, undated goals, purchase calculations, budgets, reminders/challenges, five mobile tabs, Hebrew RTL, light mode, V2 migration, JSON restore and local recovery, stale tabs, invalid legacy recovery, AI unavailable state, retired auth redirects and offline reopening. A scoped test locator was corrected after the first run found two status messages. All 13 browser workflows passed in the final run, including 320/360/390/430px layouts and permissioned service-worker notification dispatch. The notification API was intercepted in that browser test; physical OS delivery was not claimed.
+- Offline test verified that a locally recorded entry survives reload with networking disabled, and that the cached generic HTML contains no private transaction description or API response.
 
-## Not verified against external services
+## Not yet verified
 
-No usable Supabase project URL or anon key was configured in this machine. `savio.com` was supplied as a possible domain, but has not been identified as a custom Supabase API endpoint. No key was requested in chat or written to source. Live hosted registration/email verification, password recovery, refreshed sessions, cloud save/import/deletion and hosted RLS tests remain pending real Supabase configuration. AI provider requests require an optional server key and remain unverified. No Vercel deployment, DNS change, hosted smoke test, production monitoring or independent security audit was performed.
+No live AI request was made without provider/rate-limit credentials. No Vercel CLI/credential binding/deployment connector was present when checked. No Vercel deployment, DNS change, production HTTP verification or physical iPhone Safari test is claimed. Chromium emulation verifies layout/interaction/offline behavior, not every iOS storage/installation/notification behavior.
 
-Foreground browser reminders are implemented; scheduled background push delivery is not. Payroll estimates are configurable per shift/workplace and do not claim full Israeli statutory, weekly overtime or net salary calculation. See deployment and source-audit documents for scope and migration assumptions.
+Historical V2 PostgreSQL tests are documented in the earlier audit and kept as an optional legacy test. They are no longer a dependency of the local-only app or its CI. Future security review should include public AI abuse limits, deployment protection if needed, provider spending caps and device-specific storage recovery behavior.

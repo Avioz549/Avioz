@@ -1,30 +1,35 @@
-# Vercel deployment and verification
+# Deploy and open SAVIO 3.0
 
-## Configuration
+## Vercel
 
-1. Import this repository into Vercel using the repository root, Node 24, Next.js, `npm ci`, and `npm run build` (also declared in `vercel.json`).
-2. Create/select the Supabase project. Use its **Project URL** from Settings → API. An application domain such as `savio.com` is not automatically a Supabase API URL; use it only if it is actually configured as Supabase's custom API domain.
-3. Apply `supabase/schema.sql` in the project's SQL editor. It is additive and safe to reapply. New installations need only this file. If migrating the uploaded app, leave its existing normalized tables in place, then use Settings → Preview source import after signing in. Do not rerun `legacy-schema.sql` over an existing installation; it is the preserved input schema, not the new installation script.
-4. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` for Preview and Production deployments. The public anon key is intended for browser use under RLS. Never substitute a service-role key. The app no longer requires a service-role key for account deletion.
-5. Optional AI: set `SAVIO_AI_KEY` and `SAVIO_AI_MODEL` on the server. Existing `OPENAI_API_KEY` / `OPENAI_MODEL` names from the uploaded source are also accepted. Keep keys out of `NEXT_PUBLIC_*`. If both names exist, SAVIO-prefixed names take precedence. This managed environment can use a personal proxy secret named `SAVIO_AI_KEY`; Vercel uses its own secure environment-variable storage.
-6. Configure Supabase Auth's Site URL to the deployed app origin and allow the exact `/auth/callback` URL. The callback handles registration and recovery. Legacy `/auth/reset?code=...` links are forwarded through the callback. Configure the exact production domain and controlled development/preview origins; avoid broad production wildcard redirects.
-7. Enable email confirmation, configure SMTP and Auth rate limits, and enable CAPTCHA/abuse controls supported by your Supabase plan. Configure database backups and monitoring.
-8. For this cloud development environment, allow the exact Supabase project API hostname. AI requires `api.openai.com`. Vercel outbound access is configured separately.
-9. Rebuild/redeploy after changing public Supabase variables; Next.js embeds them at build time. Add `savio.com` in Vercel Domains and follow Vercel's DNS instructions only if you own that domain. No DNS or deployment changes have been made by this task.
+1. Sign in to Vercel and import `Avioz549/Avioz`, selecting the **savio-3.0** branch. For an existing project, select this branch for a preview or change the production branch only when you intend to replace the old deployment.
+2. Use the repository root, framework **Next.js**, Node **24**, install command `npm ci`, build command `npm run build`. These commands are also declared in `vercel.json`.
+3. Leave environment variables empty to use all local finance features. No Supabase URL/key, authentication or SQL setup is required.
+4. Deploy and open the HTTPS URL returned by Vercel. Use one stable URL daily. Preview URLs and different domains have separate browser storage.
+5. On iPhone, open that address in Safari → Share → Add to Home Screen. If iOS gives the installed app a separate storage context, export JSON in the original browser context and restore it in the installed app. Do not assume either context is permanent.
+6. If you own `savio.com`, you may add it through Vercel Domains and apply Vercel's DNS instructions. Export before switching domains, then restore on the new origin. No DNS changes are made by this task.
 
-## Verification on the actual deployment
+## Optional AI
 
-Use two disposable accounts, not real customer finances:
+Add server-only `SAVIO_AI_KEY` and optional `SAVIO_AI_MODEL`. Production AI also requires Upstash-compatible `SAVIO_RATE_LIMIT_URL` and `SAVIO_RATE_LIMIT_TOKEN` for distributed limits. Redeploy after configuration. Without the key or rate-limit service, the application shows AI unavailable and still provides local deterministic insights. Provider/network failures do not modify local records.
 
-- Register each account, follow verification email and sign in. Check expired/reused email links show an error. Password recovery must exchange the code, update the password, and allow login with the new password.
-- Refresh and reopen a session. Verify sign out removes account access and a second account cannot read or mutate the first user's records through the Supabase API.
-- Add/edit/delete a transaction, recurrence, workplace, overnight shift, contribution, goal, budget and reminder. Refresh and verify stored values and computed totals. Open two tabs/devices and verify stale cloud saves return a conflict rather than overwriting newer data.
-- Import an existing installation only after exporting its data. Review the migration warnings: historical shift premiums were not stored, recurring templates lacked start dates, and planned monthly contributions were not persisted. Compare imported counts and totals; original source tables remain intact.
-- Verify no personal records are included in AI requests without consent. Without a key, unavailable state and local insights must remain functional. With a key, test a consented request and confirm provider failures never modify financial records.
-- Check data export, full financial-data deletion and account deletion. Verify all user-owned rows cascade, including any original source tables.
-- Verify mobile Hebrew RTL, English LTR, keyboard access, light/dark mode and browser-supported PWA installation. Reminder notifications require permission and an open app; background push scheduling is not implemented.
-- Confirm HTTPS, security headers, redacted application logs, monitoring, recovery procedures, privacy notices and payroll assumptions before accepting real users.
+The application has no authentication. Each browser holds only its own records. To keep the hosted application itself private, use Vercel deployment protection. Rate limiting bounds requests but is not a guarantee against credit abuse; review provider spending limits and protection before enabling a public AI endpoint. Never expose AI/Redis keys through public variables or source files.
 
-## Commands
+In this managed development environment, optional AI requires `api.openai.com` plus your exact Redis REST hostname in the outbound policy. Vercel's outbound access is independent. No network additions or secret bindings are required for ordinary local app features.
 
-`npm run lint`, `npm run typecheck`, `npm test`, `npm run test:db`, `npm run build`, and `npm run test:e2e` cover the repository's automated checks. The PostgreSQL test creates an isolated disposable Docker container with no published ports and synthetic users; it never accesses a production database. Chromium tests require the built app and a local Chromium installation or Playwright's installed browser.
+## Move existing records safely
+
+- Same-origin V2 browser records migrate automatically. The `savio-local-v1` copy is preserved.
+- For V2 cloud records, export JSON using the old application before replacing its deployment, then restore through V3 Settings. Old Supabase tables and remote accounts are not deleted. V3 does not try to connect to them.
+- V3 accepts its own versioned JSON backups, raw V2 data, old snapshot envelopes and a complete normalized legacy JSON object containing all nine tables. Imports are validated and reviewed; unsupported or malformed input never erases current data. Recurring templates lacking a start date generate an explicit import warning and start in the import month.
+- Keep private copies of old and new exports until counts, currencies, goals, reminders and totals match. IDB recovery copies alone are not sufficient external backups.
+
+## Before daily use
+
+Run the commands in README. Check the actual HTTPS deployment on your iPhone and desktop: install, reload offline, migrate a disposable backup, add/edit/delete entries, use the shift timer, restore/export JSON and switch Hebrew/English. Verify that stale tabs show a conflict rather than overwriting new records. Test notifications on the device; only foreground reminders are implemented, not scheduled background push.
+
+Payroll remains a configurable gross estimate, not legal/tax advice or a complete Israeli payslip. Currency selection does not convert amounts. Deleting current records preserves local recovery versions; clearing site data removes the entire local store, V2 source copy and caches. Export first.
+
+## Deployment status
+
+A build or CI pass is not a hosted deployment. This workspace had no Vercel CLI, Vercel credential binding or deployment connector available when inspected. A real Vercel deployment, production-domain verification and physical iPhone Safari testing remain external verification steps unless subsequently completed and recorded in `VERIFICATION.md`.

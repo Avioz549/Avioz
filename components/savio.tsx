@@ -34,15 +34,11 @@ import {
   Globe,
   Sun,
   Moon,
-  Wallet,
   ShieldCheck,
   Menu,
-  LogOut,
   Check,
   TrendingUp,
 } from "lucide-react";
-import type { User } from "@supabase/supabase-js";
-import { browserClient, configured } from "@/lib/supabase";
 import {
   emptyData,
   dataSchema,
@@ -68,7 +64,16 @@ import { useReminders } from "@/lib/use-reminders";
 import { categoryLabel } from "@/lib/categories";
 import { SpendingAnalytics } from "./spending-analytics";
 import { FinancialCalendar } from "./financial-calendar";
-import { LegacyImport } from "./legacy-import";
+import { SettingsScreen } from "./settings-screen";
+import { BackupManager, exportBackup } from "./backup-manager";
+import { PurchaseCalculator } from "./purchase-calculator";
+import {
+  loadWorkspace,
+  saveWorkspace,
+  rawWorkspace,
+  storedRevision,
+} from "@/lib/storage";
+import { aiPayload } from "@/lib/ai";
 import { Modal, Field, Empty } from "./ui";
 type Tab =
   | "overview"
@@ -78,14 +83,15 @@ type Tab =
   | "budgets"
   | "calendar"
   | "ai"
-  | "settings";
+  | "settings"
+  | "more"
+  | "challenges";
 type Editor =
   | { kind: "transaction"; value?: Transaction }
   | { kind: "goal"; value?: Goal }
   | { kind: "workplace"; value?: Workplace }
   | { kind: "shift"; value?: Shift }
   | { kind: "contribution"; value: Goal }
-  | { kind: "auth" }
   | null;
 const baseCategories = [
   "Food & dining",
@@ -112,11 +118,8 @@ function download(name: string, content: string, type: string) {
 export function Savio() {
   const revision = useRef(0);
   const saving = useRef(false);
-  const signedInId = useRef<string | null>(null);
-  const localSnapshot = useRef<string | null>(null);
   const [data, setData] = useState<FinanceData>(emptyData),
     [ready, setReady] = useState(false),
-    [user, setUser] = useState<User | null>(null),
     [tab, updateTab] = useState<Tab>("overview"),
     [editor, updateEditor] = useState<Editor>(null),
     [month, setMonth] = useState(today().slice(0, 7)),
@@ -124,7 +127,6 @@ export function Savio() {
     [filter, setFilter] = useState("all"),
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false),
-    [menu, setMenu] = useState(false),
     [now, setNow] = useState(new Date()),
     [consent, setConsent] = useState(false),
     [aiAvailable, setAiAvailable] = useState(false),
@@ -133,11 +135,17 @@ export function Savio() {
     [mode, setMode] = useState<"conservative" | "balanced" | "accelerated">(
       "balanced",
     ),
-    [authMode, setAuthMode] = useState("login"),
-    [recovery, setRecovery] = useState(false);
-  useReminders(data.transactions, data.reminders, user?.id || "local", ready);
+    [backupDue, setBackupDue] = useState(false);
+  useReminders(
+    data.transactions,
+    data.reminders,
+    "local-v3",
+    ready,
+    data.profile.language,
+  );
   function setTab(next: Tab) {
-    setMenu(false);
+    setMessage("");
+    window.scrollTo({ top: 0, behavior: "instant" });
     updateTab(next);
     const url = new URL(location.href);
     url.searchParams.set("tab", next);
@@ -162,11 +170,11 @@ export function Savio() {
     new Intl.NumberFormat(he ? "he-IL" : "en-IL", {
       style: "currency",
       currency: data.profile.currency,
-      maximumFractionDigits: 0,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
     }).format(n);
   useEffect(() => {
     let active = true;
-    let unsubscribe = () => {};
     async function init() {
       const initialTab = new URLSearchParams(location.search).get("tab");
       if (
@@ -180,73 +188,53 @@ export function Savio() {
           "calendar",
           "ai",
           "settings",
+          "more",
+          "challenges",
         ].includes(initialTab)
       )
         updateTab(initialTab as Tab);
       try {
-        if (configured) {
-          const client = browserClient();
-          const {
-            data: { user },
-          } = await client.auth.getUser();
-          if (!active) return;
-          setUser(user);
-          signedInId.current = user?.id || null;
-          if (user) {
-            const response = await fetch("/api/data", { cache: "no-store" });
-            const snapshot = await response.json();
-            if (!response.ok) throw new Error(snapshot.error);
-            if (active) {
-              setData(dataSchema.parse(snapshot.data));
-              revision.current = snapshot.revision;
-            }
-          } else {
-            const raw = localStorage.getItem("savio-local-v1");
-            localSnapshot.current = raw;
-            if (raw) setData(dataSchema.parse(JSON.parse(raw)));
-          }
-          const { data: listener } = client.auth.onAuthStateChange((event) => {
-            if (event === "SIGNED_OUT") window.location.reload();
-            if (event === "SIGNED_IN" && !signedInId.current)
-              window.location.reload();
-            if (event === "PASSWORD_RECOVERY") setRecovery(true);
-          });
-          unsubscribe = () => listener.subscription.unsubscribe();
-        } else {
-          const raw = localStorage.getItem("savio-local-v1");
-          localSnapshot.current = raw;
-          if (raw) setData(dataSchema.parse(JSON.parse(raw)));
-        }
-        if (new URLSearchParams(location.search).has("recovery"))
-          setRecovery(true);
-        if (new URLSearchParams(location.search).has("auth_error"))
-          setMessage("Email link could not be verified. Request a fresh link.");
+        const { snapshot, migrated } = await loadWorkspace();
+        if (!active) return;
+        revision.current = snapshot.revision;
+        setData(snapshot.data);
+        setReady(true);
+        if (migrated)
+          setMessage(
+            "Your existing local records were migrated safely. The original copy was kept.",
+          );
+        const last = localStorage.getItem("savio-last-export");
+        setBackupDue(!last || Date.now() - Date.parse(last) > 7 * 86400000);
+        if (navigator.storage?.persist)
+          void navigator.storage.persist().catch(() => false);
       } catch (error) {
-        setMessage(
-          error instanceof Error
-            ? error.message
-            : "Could not load records. Please reload before making changes.",
-        );
-        return;
+        revision.current = await storedRevision().catch(() => 0);
+        if (active)
+          setMessage(
+            error instanceof Error
+              ? error.message
+              : "Could not open your records. Nothing was erased.",
+          );
       }
-      if (active) setReady(true);
     }
     void init();
     void fetch("/api/ai")
       .then((r) => r.json())
-      .then((result) => {
-        if (active) setAiAvailable(Boolean(result.available));
+      .then((r) => {
+        if (active) setAiAvailable(Boolean(r.available));
       })
       .catch(() => {});
     if ("serviceWorker" in navigator)
       void navigator.serviceWorker.register("/sw.js").catch(() => {});
-    const timer = setInterval(() => setNow(new Date()), 1000);
     return () => {
       active = false;
-      unsubscribe();
-      clearInterval(timer);
     };
   }, []);
+  useEffect(() => {
+    if (!data.shifts.some((s) => !s.end)) return;
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, [data.shifts]);
   useEffect(() => {
     document.documentElement.lang = data.profile.language;
     document.documentElement.dir = he ? "rtl" : "ltr";
@@ -262,27 +250,8 @@ export function Savio() {
     saving.current = true;
     setBusy(true);
     try {
-      if (user) {
-        const res = await fetch("/api/data", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            data: parsed.data,
-            revision: revision.current,
-          }),
-        });
-        const result = await res.json();
-        if (!res.ok) throw new Error(result.error);
-        revision.current = result.revision;
-      } else {
-        if (localStorage.getItem("savio-local-v1") !== localSnapshot.current)
-          throw new Error(
-            "Your local records changed in another tab. Reload before saving.",
-          );
-        const raw = JSON.stringify(parsed.data);
-        localStorage.setItem("savio-local-v1", raw);
-        localSnapshot.current = raw;
-      }
+      const snapshot = await saveWorkspace(parsed.data, revision.current);
+      revision.current = snapshot.revision;
       setData(parsed.data);
       return true;
     } catch (e) {
@@ -290,17 +259,6 @@ export function Savio() {
       return false;
     } finally {
       saving.current = false;
-      setBusy(false);
-    }
-  }
-  async function logout() {
-    setBusy(true);
-    try {
-      const { error } = await browserClient().auth.signOut();
-      if (error) throw error;
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Sign out failed");
-    } finally {
       setBusy(false);
     }
   }
@@ -465,45 +423,6 @@ export function Savio() {
             : g,
         );
       }
-      if (editor.kind === "auth") {
-        if (!configured) {
-          setMessage(
-            "Supabase is not configured. Add the public Supabase URL and anon key in environment settings.",
-          );
-          return;
-        }
-        setBusy(true);
-        const client = browserClient();
-        let error;
-        if (authMode === "register") {
-          ({ error } = await client.auth.signUp({
-            email: v("email"),
-            password: v("password"),
-            options: { emailRedirectTo: location.origin + "/auth/callback" },
-          }));
-          if (!error)
-            setMessage(
-              "Check your email to verify your account, then sign in.",
-            );
-        } else if (authMode === "reset") {
-          ({ error } = await client.auth.resetPasswordForEmail(v("email"), {
-            redirectTo: location.origin + "/auth/callback?type=recovery",
-          }));
-          if (!error)
-            setMessage(
-              "If the account exists, a password reset link has been sent.",
-            );
-        } else {
-          ({ error } = await client.auth.signInWithPassword({
-            email: v("email"),
-            password: v("password"),
-          }));
-        }
-        setBusy(false);
-        if (error) throw error;
-        setEditor(null);
-        return;
-      }
       if (await commit(next)) {
         setEditor(null);
         setMessage(he ? "נשמר בהצלחה" : "Saved successfully");
@@ -524,7 +443,7 @@ export function Savio() {
       const res = await fetch("/api/ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, consent, month }),
+        body: JSON.stringify(aiPayload(text, data, month, consent)),
       });
       const result = await res.json();
       setChat((c) => [
@@ -546,6 +465,37 @@ export function Savio() {
     { key: "budgets", icon: ChartPie },
     { key: "calendar", icon: CalendarDays },
     { key: "ai", icon: Sparkles },
+    { key: "challenges", icon: TrendingUp },
+    { key: "settings", icon: Settings },
+  ] as const;
+  const label = (key: Tab) =>
+    key === "more"
+      ? he
+        ? "עוד"
+        : "More"
+      : key === "challenges"
+        ? he
+          ? "אתגרים"
+          : "Challenges"
+        : key === "overview"
+          ? he
+            ? "בית"
+            : "Home"
+          : key === "shifts"
+            ? he
+              ? "עבודה"
+              : "Work"
+            : key === "goals"
+              ? he
+                ? "חיסכון"
+                : "Savings"
+              : t[key];
+  const primaryNav = [
+    { key: "overview", icon: LayoutDashboard },
+    { key: "transactions", icon: ArrowLeftRight },
+    { key: "shifts", icon: Clock3 },
+    { key: "goals", icon: Target },
+    { key: "more", icon: Menu },
   ] as const;
   const transactionList = (items: Transaction[]) =>
     items.length ? (
@@ -748,10 +698,17 @@ export function Savio() {
             </button>
             <button
               className="text-button"
-              onClick={() =>
+              onClick={async () =>
                 download(
                   "savio-browser-backup.json",
-                  localStorage.getItem("savio-local-v1") || "{}",
+                  JSON.stringify(
+                    {
+                      legacy: localStorage.getItem("savio-local-v1"),
+                      workspace: await rawWorkspace().catch(() => null),
+                    },
+                    null,
+                    2,
+                  ),
                   "application/json",
                 )
               }
@@ -759,6 +716,25 @@ export function Savio() {
               Export browser backup
             </button>
           </>
+        )}
+        {message && (
+          <BackupManager
+            data={emptyData()}
+            recoveryMode
+            onSave={async (next) => {
+              try {
+                const snap = await saveWorkspace(next, revision.current);
+                revision.current = snap.revision;
+                setData(snap.data);
+                setReady(true);
+                setMessage("Backup restored.");
+                return true;
+              } catch (e) {
+                setMessage(e instanceof Error ? e.message : "Restore failed");
+                return false;
+              }
+            }}
+          />
         )}
       </main>
     );
@@ -768,105 +744,78 @@ export function Savio() {
         {he ? "דילוג לתוכן" : "Skip to content"}
       </a>
       <aside
-        id="workspace-navigation"
-        className={"sidebar " + (menu ? "open" : "")}
+        className="sidebar"
+        aria-label={he ? "ניווט ראשי" : "Primary navigation"}
       >
-        <button
-          className="icon-button mobile-menu close-navigation"
-          aria-label="Close navigation"
-          onClick={() => setMenu(false)}
-        >
-          ×
-        </button>
         <Link className="brand" href="/">
           SAVIO<span>●</span>
         </Link>
         <p className="brand-tagline">הכסף שלך. העתיד שלך.</p>
         <div className="workspace-label">
-          {he ? "המרחב שלך" : "YOUR WORKSPACE"}
+          {he ? "המרחב האישי שלך" : "YOUR PERSONAL SPACE"}
         </div>
         <nav>
           {nav.map(({ key, icon: Icon }) => (
             <button
               className={"nav-item " + (tab === key ? "active" : "")}
+              aria-current={tab === key ? "page" : undefined}
+              onClick={() => setTab(key)}
               key={key}
-              onClick={() => {
-                setTab(key);
-                setMenu(false);
-              }}
             >
-              <Icon size={19} />
-              <span>{t[key]}</span>
-              {key === "ai" && <span className="new-badge">AI</span>}
+              <Icon size={21} />
+              <span>{label(key)}</span>
             </button>
           ))}
         </nav>
         <div className="sidebar-bottom">
           <div className="side-note">
-            <span className="mini-star">✧</span>
+            <ShieldCheck size={22} />
             <strong>
-              {he ? "העתיד מתחיל בך" : "Your future starts with you."}
+              {he ? "מקומי. אישי. שלך." : "Local. Personal. Yours."}
             </strong>
             <p>
               {he
-                ? "כל צעד קטן נחשב."
-                : "Every small step counts. Let’s make yours matter."}
+                ? "גיבוי קטן היום, שקט נפשי מחר."
+                : "A small backup today. Peace of mind tomorrow."}
             </p>
-            <span className="small positive">
-              {he ? "בונים הרגלים טובים" : "Build better money habits"} ↗
-            </span>
+            <button
+              className="text-button"
+              onClick={() => {
+                exportBackup(data);
+                setBackupDue(false);
+              }}
+            >
+              <Download size={16} />
+              {he ? "גיבוי הנתונים" : "Back up records"}
+            </button>
           </div>
-          <button
-            className={"nav-item " + (tab === "settings" ? "active" : "")}
-            onClick={() => setTab("settings")}
-          >
-            <Settings size={19} />
-            {t.settings}
-          </button>
           <div className="profile">
             <span className="avatar">
-              {(data.profile.name || user?.email || "S")
-                .slice(0, 1)
-                .toUpperCase()}
+              {(data.profile.name || "S").slice(0, 1).toUpperCase()}
             </span>
             <div className="grow">
               <strong>
-                {data.profile.name ||
-                  user?.email?.split("@")[0] ||
-                  (he ? "החשבון שלך" : "Your workspace")}
+                {data.profile.name || (he ? "המרחב שלך" : "Your workspace")}
               </strong>
-              <small>
-                {user ? "Personal account" : "Local · on this device"}
-              </small>
+              <small>{he ? "נשמר במכשיר הזה" : "Saved on this device"}</small>
             </div>
-            <button
-              className="icon-button"
-              aria-label={user ? t.logout : t.login}
-              onClick={() => (user ? logout() : setEditor({ kind: "auth" }))}
-            >
-              {user ? <LogOut size={17} /> : <ArrowRight size={17} />}
-            </button>
           </div>
         </div>
       </aside>
       <div className="main-wrap">
         <header className="topbar">
-          <button
-            className="icon-button mobile-menu"
-            aria-label="Menu"
-            onClick={() => setMenu(!menu)}
-          >
-            <Menu />
-          </button>
+          <span className="mobile-brand">
+            SAVIO<span>●</span>
+          </span>
           <div className="breadcrumb">
             {he ? "המרחב שלך" : "My workspace"}
             <span>/</span>
-            <strong>{t[tab]}</strong>
+            <strong>{label(tab)}</strong>
           </div>
           <div className="top-actions">
             <span className="security">
               <ShieldCheck size={14} />
-              {user ? "Secure connection" : "Private by design"}
+              {he ? "נשמר במכשיר הזה" : "On-device storage"}
             </span>
             <button
               className="icon-button"
@@ -909,7 +858,11 @@ export function Savio() {
                 <span /> {t.greeting}
               </p>
               <h1>
-                {tab === "overview" ? t.dashboard : t[tab]}
+                {tab === "overview"
+                  ? he
+                    ? `שלום${data.profile.name ? ", " + data.profile.name : ""}`
+                    : `Hello${data.profile.name ? ", " + data.profile.name : ""}`
+                  : label(tab)}
                 <span className="heading-dot">.</span>
               </h1>
               <p className="muted">
@@ -938,19 +891,40 @@ export function Savio() {
               </button>
             </div>
           </div>
-          {!user && (
-            <div className="local-banner">
-              <ShieldCheck size={17} />
-              <span>
-                <strong>{t.local}</strong>{" "}
-                <span className="banner-description">{t.localSub}</span>
-              </span>
-              <button onClick={() => setEditor({ kind: "auth" })}>
-                {t.login}
-                <ArrowUpRight size={14} />
-              </button>
-            </div>
-          )}
+          {backupDue &&
+            Boolean(
+              data.transactions.length ||
+              data.shifts.length ||
+              data.goals.length ||
+              data.reminders.length ||
+              Object.keys(data.budgets).length,
+            ) && (
+              <div className="backup-reminder">
+                <ShieldCheck size={20} />
+                <div className="grow">
+                  <strong>
+                    {he
+                      ? "הנתונים שלך ראויים לגיבוי"
+                      : "Your records deserve a backup"}
+                  </strong>
+                  <span>
+                    {he
+                      ? "אחסון הדפדפן אינו קבוע ואינו מוצפן. שמרו עותק פרטי."
+                      : "Browser storage is not permanent or encrypted. Keep a private copy."}
+                  </span>
+                </div>
+                <button
+                  className="secondary"
+                  onClick={() => {
+                    exportBackup(data);
+                    setBackupDue(false);
+                  }}
+                >
+                  <Download size={16} />
+                  {he ? "גיבוי עכשיו" : "Back up now"}
+                </button>
+              </div>
+            )}
           {message && (
             <div role="status" className="notice">
               <span>{message}</span>
@@ -961,34 +935,79 @@ export function Savio() {
           )}
           {tab === "overview" && (
             <>
+              <section className="balance-hero">
+                <div className="hero-copy">
+                  <span className="eyebrow">
+                    {he
+                      ? "מקום לבהירות כלכלית"
+                      : "A LITTLE MORE FINANCIAL CLARITY"}
+                  </span>
+                  <p>{t.balance}</p>
+                  <strong className="hero-balance" dir="ltr">
+                    {money(sum.balance)}
+                  </strong>
+                  <span className="small">
+                    {he
+                      ? "הכנסות פחות הוצאות שנרשמו · לא יתרת בנק"
+                      : "Recorded income less expenses · not a bank balance"}
+                  </span>
+                  <div className="hero-metrics">
+                    <div>
+                      <ArrowDownRight size={18} />
+                      <span>{t.income}</span>
+                      <b>{money(sum.income)}</b>
+                    </div>
+                    <div>
+                      <ArrowUpRight size={18} />
+                      <span>{t.expenses}</span>
+                      <b>{money(sum.expenses)}</b>
+                    </div>
+                  </div>
+                </div>
+                <div className="hero-aside">
+                  <span className="hero-mark">S</span>
+                  <span>
+                    {he ? "הכסף שלך. העתיד שלך." : "Your money. Your future."}
+                  </span>
+                </div>
+              </section>
+              <section
+                className="quick-actions"
+                aria-label={he ? "פעולות מהירות" : "Quick actions"}
+              >
+                <button onClick={() => setEditor({ kind: "transaction" })}>
+                  <span>
+                    <Plus />
+                  </span>
+                  {t.add}
+                </button>
+                <button onClick={() => setTab("shifts")}>
+                  <span>
+                    <Clock3 />
+                  </span>
+                  {he ? "התחלת משמרת" : "Start a shift"}
+                </button>
+                <button onClick={() => setEditor({ kind: "goal" })}>
+                  <span>
+                    <Target />
+                  </span>
+                  {t.newGoal}
+                </button>
+                <button onClick={() => setTab("calendar")}>
+                  <span>
+                    <CalendarDays />
+                  </span>
+                  {he ? "לוח השנה שלי" : "My calendar"}
+                </button>
+              </section>
               <section className="stats-grid">
                 {[
                   {
-                    label: t.income,
-                    value: sum.income,
-                    icon: ArrowDownRight,
+                    label: t.expected,
+                    value: pay,
+                    icon: Clock3,
                     color: "green",
-                    note: he
-                      ? "מתנועות שנרשמו החודש"
-                      : "From your recorded income",
-                  },
-                  {
-                    label: t.expenses,
-                    value: sum.expenses,
-                    icon: ArrowUpRight,
-                    color: "coral",
-                    note: he
-                      ? "הוצאות חד פעמיות וחוזרות"
-                      : "One-time & recurring expenses",
-                  },
-                  {
-                    label: t.balance,
-                    value: sum.balance,
-                    icon: Wallet,
-                    color: "blue",
-                    note: he
-                      ? "הכנסות פחות הוצאות · לא יתרת בנק"
-                      : "Income less expenses · not bank balance",
+                    note: t.gross,
                   },
                   {
                     label: t.savings,
@@ -998,8 +1017,8 @@ export function Savio() {
                     note: target
                       ? `${Math.round((saved / target) * 100)}% ${he ? "מהיעדים שלך" : "of your combined goals"}`
                       : he
-                        ? "צעד ראשון לעבר העתיד"
-                        : "Your first step toward the future",
+                        ? "כל הפקדה היא צעד קדימה"
+                        : "Every contribution is a step forward",
                   },
                 ].map(({ label, value, icon: Icon, color, note }) => (
                   <article className="stat-card" key={label}>
@@ -1106,6 +1125,7 @@ export function Savio() {
                           formatter={(value) => money(Number(value))}
                         />
                         <Area
+                          isAnimationActive={false}
                           type="monotone"
                           dataKey="income"
                           name={t.incomeType}
@@ -1114,6 +1134,7 @@ export function Savio() {
                           fill="url(#income-fill)"
                         />
                         <Area
+                          isAnimationActive={false}
                           type="monotone"
                           dataKey="expenses"
                           name={t.expense}
@@ -1205,6 +1226,7 @@ export function Savio() {
                   </div>
                   {transactionList(
                     [...txs]
+                      .reverse()
                       .sort((a, b) => b.date.localeCompare(a.date))
                       .slice(0, 4),
                   )}
@@ -1328,6 +1350,7 @@ export function Savio() {
               </div>
               {transactionList(
                 [...txs]
+                  .reverse()
                   .filter(
                     (x) =>
                       (filter === "all" ||
@@ -1488,7 +1511,11 @@ export function Savio() {
                             <tr key={s.id}>
                               <td>
                                 {w.name}
-                                {s.premium ? " · Premium" : ""}
+                                {s.premium
+                                  ? he
+                                    ? " · תוספת שכר"
+                                    : " · Premium"
+                                  : ""}
                                 {s.legacyGross !== undefined && (
                                   <small className="muted">
                                     {" "}
@@ -1500,7 +1527,9 @@ export function Savio() {
                               <td>
                                 {s.end
                                   ? new Date(s.end).toLocaleString()
-                                  : "Running"}
+                                  : he
+                                    ? "בפעילות"
+                                    : "Running"}
                               </td>
                               <td>{p.hours.toFixed(2)}</td>
                               <td>{money(p.gross)}</td>
@@ -1551,11 +1580,15 @@ export function Savio() {
                     onChange={(e) => setMode(e.target.value as typeof mode)}
                   >
                     <option value="conservative">
-                      Conservative · 20% surplus
+                      {he
+                        ? "שמרנית · 20% מהיתרה"
+                        : "Conservative · 20% surplus"}
                     </option>
-                    <option value="balanced">Balanced · 35% surplus</option>
+                    <option value="balanced">
+                      {he ? "מאוזנת · 35% מהיתרה" : "Balanced · 35% surplus"}
+                    </option>
                     <option value="accelerated">
-                      Accelerated · 50% surplus
+                      {he ? "מואצת · 50% מהיתרה" : "Accelerated · 50% surplus"}
                     </option>
                   </select>
                   <button
@@ -1604,6 +1637,11 @@ export function Savio() {
                 </p>
               </div>
             </>
+          )}
+          {tab === "goals" && (
+            <div className="spaced">
+              <PurchaseCalculator workplaces={data.workplaces} he={he} />
+            </div>
           )}
           {tab === "budgets" && (
             <div className="budgets-grid">
@@ -1760,20 +1798,10 @@ export function Savio() {
                     />
                     {t.consent}
                   </label>
-                  <button
-                    className="primary"
-                    disabled={busy || !user || !aiAvailable}
-                  >
+                  <button className="primary" disabled={busy || !aiAvailable}>
                     <Sparkles size={16} />
                     {busy ? "Thinking…" : t.send}
                   </button>
-                  {!user && (
-                    <p className="small muted">
-                      {he
-                        ? "התחברו כדי להשתמש בשירות AI."
-                        : "Sign in to use the AI service."}
-                    </p>
-                  )}
                 </form>
               </article>
               <div>
@@ -1800,227 +1828,124 @@ export function Savio() {
                       : "Calculated locally from your selected month. No records leave the device for this insight."}
                   </p>
                 </article>
-                <article className="panel spaced">
-                  <h3>
-                    {he ? "כמה שעות זה עולה?" : "What does it cost in hours?"}
-                  </h3>
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      const f = new FormData(e.currentTarget),
-                        wage = Number(f.get("wage")),
-                        price = Number(f.get("price"));
-                      setMessage(
-                        `${(price / wage).toFixed(1)} ${he ? "שעות עבודה ברוטו" : "gross work hours"} · ${he ? "לפני מסים וניכויים" : "before taxes and deductions"}`,
-                      );
-                    }}
-                  >
-                    <Field label={he ? "מחיר רכישה" : "Purchase price"}>
-                      <input
-                        name="price"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        required
-                      />
-                    </Field>
-                    <Field label={he ? "שכר שעתי ברוטו" : "Gross hourly wage"}>
-                      <input
-                        name="wage"
-                        type="number"
-                        min="0.01"
-                        step="0.01"
-                        defaultValue={data.workplaces[0]?.wage}
-                        required
-                      />
-                    </Field>
-                    <button className="secondary">
-                      {he ? "חישוב" : "Calculate"}
-                    </button>
-                  </form>
-                </article>
+                <div className="spaced">
+                  <PurchaseCalculator workplaces={data.workplaces} he={he} />
+                </div>
               </div>
             </div>
           )}
-          {tab === "settings" && (
-            <div className="settings-grid">
-              <article className="panel">
-                <h2>{t.profile}</h2>
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    const f = new FormData(e.currentTarget);
-                    void commit({
-                      ...data,
-                      profile: {
-                        name: String(f.get("name")),
-                        currency: f.get("currency") as "ILS",
-                        language: f.get("language") as "en",
-                        theme: f.get("theme") as "dark",
-                      },
-                    });
-                  }}
-                >
-                  <Field label={t.name}>
-                    <input
-                      name="name"
-                      maxLength={100}
-                      defaultValue={data.profile.name}
-                    />
-                  </Field>
-                  <Field label={he ? "מטבע" : "Display currency"}>
-                    <select
-                      name="currency"
-                      defaultValue={data.profile.currency}
-                    >
-                      <option value="ILS">ILS · ₪</option>
-                      <option value="USD">USD · $</option>
-                      <option value="EUR">EUR · €</option>
-                      <option value="GBP">GBP · £</option>
-                    </select>
-                  </Field>
-                  <p className="small muted">
-                    Changing currency changes display units only. SAVIO does not
-                    convert exchange rates; keep all records in one currency.
-                  </p>
-                  <Field label="Language / שפה">
-                    <select
-                      name="language"
-                      defaultValue={data.profile.language}
-                    >
-                      <option value="en">English</option>
-                      <option value="he">עברית</option>
-                    </select>
-                  </Field>
-                  <Field label={he ? "מראה" : "Appearance"}>
-                    <select name="theme" defaultValue={data.profile.theme}>
-                      <option value="dark">Dark</option>
-                      <option value="light">Light</option>
-                    </select>
-                  </Field>
-                  <button className="primary" disabled={busy}>
-                    {t.save}
-                  </button>
-                </form>
-              </article>
-              <div>
-                <article className="panel">
-                  <h2>{he ? "הנתונים שלך" : "Your data, your control"}</h2>
-                  <p className="muted">
-                    {user
-                      ? "Financial records are saved to your authenticated account."
-                      : "Local records are saved in this browser. Signing in opens a separate account workspace. Export local records before switching."}
-                  </p>
+          {tab === "more" && (
+            <section className="more-grid">
+              {nav
+                .filter((n) =>
+                  [
+                    "budgets",
+                    "calendar",
+                    "ai",
+                    "challenges",
+                    "settings",
+                  ].includes(n.key),
+                )
+                .map(({ key, icon: Icon }) => (
                   <button
-                    className="secondary"
-                    onClick={() =>
-                      download(
-                        "savio-data.json",
-                        JSON.stringify(data, null, 2),
-                        "application/json",
-                      )
-                    }
+                    className="more-card"
+                    onClick={() => setTab(key)}
+                    key={key}
                   >
-                    <Download size={16} />
-                    {t.export}
-                  </button>
-                  <p className="small muted">
-                    Exports contain personal financial records. Store them
-                    privately.
-                  </p>
-                  <button
-                    className="danger"
-                    disabled={busy}
-                    onClick={async () => {
-                      if (
-                        confirm("Delete all financial records permanently?")
-                      ) {
-                        const next = emptyData();
-                        next.profile = data.profile;
-                        if (await commit(next))
-                          setMessage("All financial records deleted.");
-                      }
-                    }}
-                  >
-                    {he ? "מחיקת הנתונים" : "Delete all financial data"}
-                  </button>
-                </article>
-                {user && <LegacyImport data={data} onSave={commit} />}
-                <article className="panel spaced">
-                  <h2>{he ? "החשבון שלך" : "Your account"}</h2>
-                  {user ? (
-                    <>
-                      <p className="muted">{user.email}</p>
-                      <button
-                        className="secondary"
-                        onClick={() =>
-                          browserClient()
-                            .auth.resetPasswordForEmail(user.email!, {
-                              redirectTo:
-                                location.origin +
-                                "/auth/callback?type=recovery",
-                            })
-                            .then(({ error }) =>
-                              setMessage(
-                                error
-                                  ? error.message
-                                  : "Check your email for a password reset link.",
-                              ),
-                            )
-                        }
-                      >
-                        Reset password
-                      </button>
-                      <button
-                        className="danger"
-                        disabled={busy}
-                        onClick={async () => {
-                          if (
-                            !confirm(
-                              "Permanently delete your account and all financial data?",
-                            )
-                          )
-                            return;
-                          setBusy(true);
-                          try {
-                            const res = await fetch("/api/account", {
-                              method: "DELETE",
-                            });
-                            const result = await res.json();
-                            if (!res.ok) throw new Error(result.error);
-                            location.reload();
-                          } catch (e) {
-                            setMessage(
-                              e instanceof Error
-                                ? e.message
-                                : "Deletion failed",
-                            );
-                          } finally {
-                            setBusy(false);
-                          }
-                        }}
-                      >
-                        Delete account
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <p className="muted">
-                        {configured
-                          ? "Sign in to save to your private account."
-                          : "Cloud authentication requires Supabase configuration."}
+                    <span className="more-icon">
+                      <Icon size={26} />
+                    </span>
+                    <div>
+                      <h2>{label(key)}</h2>
+                      <p>
+                        {key === "budgets"
+                          ? he
+                            ? "מסגרת שמתאימה לחיים שלך"
+                            : "Make room for what matters"
+                          : key === "calendar"
+                            ? he
+                              ? "כל התשלומים והתזכורות במקום אחד"
+                              : "Payments and reminders, together"
+                            : key === "ai"
+                              ? he
+                                ? "מחשבות טובות על הכסף שלך"
+                                : "A thoughtful financial conversation"
+                              : key === "challenges"
+                                ? he
+                                  ? "הרגלים קטנים. שינוי גדול."
+                                  : "Small habits. Meaningful progress."
+                                : he
+                                  ? "העדפות, גיבוי ושחזור"
+                                  : "Preferences, backups and recovery"}
                       </p>
-                      <button
-                        className="primary"
-                        onClick={() => setEditor({ kind: "auth" })}
-                      >
-                        {t.login}
-                      </button>
-                    </>
-                  )}
+                    </div>
+                    <ArrowRight size={19} />
+                  </button>
+                ))}
+            </section>
+          )}
+          {tab === "challenges" && (
+            <section className="challenge-grid">
+              {[
+                {
+                  title: he ? "הצעד הראשון" : "The first step",
+                  count: data.transactions.length,
+                  target: 1,
+                  text: he
+                    ? "רשמו תנועה ראשונה והתחילו לראות את התמונה."
+                    : "Record your first transaction and start finding clarity.",
+                },
+                {
+                  title: he ? "בונים הרגל חיסכון" : "A saving habit",
+                  count: data.goals.reduce(
+                    (n, g) => n + g.contributions.length,
+                    0,
+                  ),
+                  target: 3,
+                  text: he
+                    ? "בצעו שלוש הפקדות מתועדות ליעדים שלכם."
+                    : "Record three contributions toward your savings goals.",
+                },
+                {
+                  title: he ? "שבוע של מודעות" : "A week of awareness",
+                  count: new Set(data.transactions.map((t) => t.date)).size,
+                  target: 7,
+                  text: he
+                    ? "תעדו תנועות בשבעה ימים שונים."
+                    : "Record transactions on seven different days.",
+                },
+              ].map((c) => (
+                <article className="panel challenge-card" key={c.title}>
+                  <span className="goal-icon">
+                    <Target size={24} />
+                  </span>
+                  <span className="pill">
+                    {c.count >= c.target
+                      ? he
+                        ? "הושלם ✓"
+                        : "Achieved ✓"
+                      : he
+                        ? "בתהליך"
+                        : "In progress"}
+                  </span>
+                  <h2>{c.title}</h2>
+                  <p className="muted">{c.text}</p>
+                  <div className="progress">
+                    <i
+                      style={{
+                        width: Math.min(100, (c.count / c.target) * 100) + "%",
+                      }}
+                    />
+                  </div>
+                  <strong>
+                    {Math.min(c.count, c.target)} / {c.target}
+                  </strong>
                 </article>
-              </div>
-            </div>
+              ))}
+            </section>
+          )}
+          {tab === "settings" && (
+            <SettingsScreen data={data} onSave={commit} busy={busy} />
           )}
           <footer>
             <span className="footer-brand">
@@ -2033,29 +1958,49 @@ export function Savio() {
             </span>
             <span>
               <span className="tiny-dot green" />
-              {user ? "Account workspace" : "Private local workspace"}
+              {he ? "סביבת עבודה מקומית" : "Local-first workspace"}
             </span>
           </footer>
         </main>
       </div>
+      <nav
+        className="bottom-nav"
+        aria-label={he ? "ניווט ראשי" : "Primary navigation"}
+      >
+        {primaryNav.map(({ key, icon: Icon }) => {
+          const selected =
+            tab === key ||
+            (key === "more" &&
+              ["budgets", "calendar", "ai", "challenges", "settings"].includes(
+                tab,
+              ));
+          return (
+            <button
+              aria-current={selected ? "page" : undefined}
+              className={selected ? "selected" : ""}
+              onClick={() => setTab(key)}
+              key={key}
+            >
+              <Icon size={23} />
+              <span>{label(key)}</span>
+            </button>
+          );
+        })}
+      </nav>
       {editor && (
         <Modal
           title={
-            editor.kind === "auth"
-              ? authMode === "register"
-                ? "Create your account"
-                : authMode === "reset"
-                  ? "Reset password"
-                  : t.login
-              : editor.kind === "transaction"
-                ? t.add
-                : editor.kind === "goal"
-                  ? t.newGoal
-                  : editor.kind === "workplace"
-                    ? t.workplace
-                    : editor.kind === "contribution"
-                      ? "Record a contribution"
-                      : t.newShift
+            editor.kind === "transaction"
+              ? t.add
+              : editor.kind === "goal"
+                ? t.newGoal
+                : editor.kind === "workplace"
+                  ? t.workplace
+                  : editor.kind === "contribution"
+                    ? he
+                      ? "רישום הפקדה"
+                      : "Record a contribution"
+                    : t.newShift
           }
           onClose={() => setEditor(null)}
         >
@@ -2186,8 +2131,10 @@ export function Savio() {
             {editor.kind === "contribution" && (
               <>
                 <p className="muted">
-                  {editor.value.name} · This records a contribution, it does not
-                  transfer money.
+                  {editor.value.name} ·{" "}
+                  {he
+                    ? "רישום הפקדה בלבד. הפעולה אינה מעבירה כסף."
+                    : "This records a contribution; it does not transfer money."}
                 </p>
                 <Field label={t.amount}>
                   <input
@@ -2231,8 +2178,9 @@ export function Savio() {
                   />
                 </Field>
                 <p className="small muted">
-                  Set the rules from your employment agreement. These defaults
-                  are examples, not a universal Israeli payroll rule.
+                  {he
+                    ? "הגדירו את הכללים לפי הסכם העבודה שלכם. ערכי ברירת המחדל הם דוגמאות, ולא כלל שכר ישראלי אחיד."
+                    : "Set the rules from your employment agreement. These defaults are examples, not a universal Israeli payroll rule."}
                 </p>
                 <div className="form-grid">
                   {(
@@ -2376,66 +2324,6 @@ export function Savio() {
                 </label>
               </>
             )}
-            {editor.kind === "auth" && (
-              <>
-                <p className="muted">
-                  {configured
-                    ? "Your financial data belongs to you."
-                    : "Supabase is not configured. Local finance tools are available; cloud authentication requires environment settings."}
-                </p>
-                <Field label={he ? "אימייל" : "Email"}>
-                  <input
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    required
-                    maxLength={254}
-                  />
-                </Field>
-                {authMode !== "reset" && (
-                  <Field label={he ? "סיסמה" : "Password"}>
-                    <input
-                      name="password"
-                      type="password"
-                      minLength={8}
-                      maxLength={128}
-                      autoComplete={
-                        authMode === "register"
-                          ? "new-password"
-                          : "current-password"
-                      }
-                      required
-                    />
-                  </Field>
-                )}
-                <div className="button-row">
-                  <button
-                    type="button"
-                    className="text-button"
-                    onClick={() =>
-                      setAuthMode(
-                        authMode === "register" ? "login" : "register",
-                      )
-                    }
-                  >
-                    {authMode === "register"
-                      ? "Already have an account?"
-                      : "Create an account"}
-                  </button>
-                  <button
-                    type="button"
-                    className="text-button"
-                    onClick={() =>
-                      setAuthMode(authMode === "reset" ? "login" : "reset")
-                    }
-                  >
-                    {authMode === "reset"
-                      ? "Back to login"
-                      : "Forgot password?"}
-                  </button>
-                </div>
-              </>
-            )}
             <div className="modal-actions">
               <button
                 type="button"
@@ -2444,54 +2332,10 @@ export function Savio() {
               >
                 {t.cancel}
               </button>
-              <button
-                className="primary"
-                disabled={busy || (editor.kind === "auth" && !configured)}
-              >
-                {busy
-                  ? "Saving…"
-                  : editor.kind === "auth"
-                    ? "Continue"
-                    : t.save}
+              <button className="primary" disabled={busy}>
+                {busy ? (he ? "שומר…" : "Saving…") : t.save}
               </button>
             </div>
-          </form>
-        </Modal>
-      )}
-      {recovery && (
-        <Modal title="Choose a new password" onClose={() => setRecovery(false)}>
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault();
-              setBusy(true);
-              const password = String(
-                new FormData(e.currentTarget).get("password"),
-              );
-              const { error } = await browserClient().auth.updateUser({
-                password,
-              });
-              setBusy(false);
-              if (error) setMessage(error.message);
-              else {
-                setRecovery(false);
-                setMessage("Password updated.");
-                history.replaceState(null, "", "/");
-              }
-            }}
-          >
-            <Field label={he ? "סיסמה חדשה" : "New password"}>
-              <input
-                name="password"
-                type="password"
-                minLength={8}
-                maxLength={128}
-                autoComplete="new-password"
-                required
-              />
-            </Field>
-            <button className="primary" disabled={busy}>
-              Update password
-            </button>
           </form>
         </Modal>
       )}

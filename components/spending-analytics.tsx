@@ -67,6 +67,7 @@ export function SpendingAnalytics({
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
+                    isAnimationActive={false}
                     data={categories}
                     dataKey="value"
                     nameKey="name"
@@ -144,12 +145,14 @@ export function SpendingAnalytics({
                 formatter={(v) => money(Number(v))}
               />
               <Bar
+                isAnimationActive={false}
                 dataKey="income"
                 name={he ? "הכנסה" : "Income"}
                 fill="#81e7af"
                 radius={[3, 3, 0, 0]}
               />
               <Bar
+                isAnimationActive={false}
                 dataKey="expenses"
                 name={he ? "הוצאות" : "Expenses"}
                 fill="#9aabe8"

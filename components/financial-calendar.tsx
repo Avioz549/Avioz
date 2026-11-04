@@ -149,15 +149,14 @@ export function FinancialCalendar({
                 {data.reminders
                   .filter((r) => r.date === date)
                   .map((r) => (
-                    <button
+                    <span
                       className={
                         "calendar-reminder " + (r.done ? "completed" : "")
                       }
                       key={r.id}
-                      onClick={() => setEditing(r)}
                     >
                       {r.done ? "✓" : "◦"} {r.title}
-                    </button>
+                    </span>
                   ))}
               </div>
             );
