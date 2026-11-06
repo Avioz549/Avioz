@@ -1,4 +1,5 @@
 "use client";
+import { resolveTheme } from "@/lib/themes";
 import Link from "next/link";
 import { Fragment, useEffect, useState, useRef } from "react";
 import {
@@ -241,7 +242,26 @@ export function Savio() {
   useEffect(() => {
     document.documentElement.lang = data.profile.language;
     document.documentElement.dir = he ? "rtl" : "ltr";
-    document.documentElement.dataset.theme = data.profile.theme;
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const apply = () => {
+      const resolved = resolveTheme(data.profile.theme, media.matches);
+      document.documentElement.dataset.theme = resolved;
+      document
+        .querySelector('meta[name="theme-color"]')
+        ?.setAttribute(
+          "content",
+          resolved === "light"
+            ? "#f2f5f2"
+            : resolved === "midnight"
+              ? "#070e20"
+              : resolved === "purple"
+                ? "#10091b"
+                : "#010403",
+        );
+    };
+    apply();
+    media.addEventListener("change", apply);
+    return () => media.removeEventListener("change", apply);
   }, [data.profile.language, data.profile.theme, he]);
   async function commit(next: FinanceData) {
     if (saving.current || !ready) return false;

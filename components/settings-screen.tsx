@@ -1,4 +1,5 @@
 "use client";
+import { themes, type Theme } from "@/lib/themes";
 import { useState } from "react";
 import {
   UserRound,
@@ -36,7 +37,7 @@ export function SettingsScreen({
   const he = data.profile.language === "he",
     tr = (en: string, heb: string) => (he ? heb : en),
     [pane, setPane] = useState<
-      "profile" | "backup" | "install" | "about" | null
+      "profile" | "backup" | "install" | "about" | "theme" | null
     >(null),
     [notice, setNotice] = useState("");
   const Arrow = he ? ChevronLeft : ChevronRight;
@@ -139,12 +140,11 @@ export function SettingsScreen({
           }
         })}
         {row(
-          tr("Appearance", "מראה"),
-          data.profile.theme === "dark"
-            ? tr("Dark", "כהה")
-            : tr("Light", "בהיר"),
+          tr("App design", "עיצוב האפליקציה"),
+          themes.find((t) => t.id === data.profile.theme)?.[he ? "he" : "en"] ??
+            "",
           Palette,
-          () => setPane("profile"),
+          () => setPane("theme"),
         )}
         {row(
           "SAVIO AI",
@@ -198,17 +198,61 @@ export function SettingsScreen({
       {pane && (
         <Modal
           title={
-            pane === "profile"
-              ? tr("Your preferences", "ההעדפות שלך")
-              : pane === "backup"
-                ? tr("Backup & restore", "גיבוי ושחזור")
-                : pane === "install"
-                  ? tr("Install SAVIO", "התקנת SAVIO")
-                  : tr("About SAVIO", "על SAVIO")
+            pane === "theme"
+              ? tr("App design", "עיצוב האפליקציה")
+              : pane === "profile"
+                ? tr("Your preferences", "ההעדפות שלך")
+                : pane === "backup"
+                  ? tr("Backup & restore", "גיבוי ושחזור")
+                  : pane === "install"
+                    ? tr("Install SAVIO", "התקנת SAVIO")
+                    : tr("About SAVIO", "על SAVIO")
           }
           onClose={() => setPane(null)}
         >
-          {pane === "profile" ? (
+          {pane === "theme" ? (
+            <div
+              className="theme-picker"
+              role="group"
+              aria-label={tr("Choose theme", "בחירת ערכת עיצוב")}
+            >
+              <p className="muted">
+                {tr(
+                  "Changes apply immediately and are saved on this device.",
+                  "השינויים מוחלים מיד ונשמרים במכשיר הזה.",
+                )}
+              </p>
+              {themes.map((theme) => (
+                <button
+                  key={theme.id}
+                  type="button"
+                  className="theme-option"
+                  disabled={busy}
+                  aria-pressed={data.profile.theme === theme.id}
+                  onClick={() =>
+                    void onSave({
+                      ...data,
+                      profile: { ...data.profile, theme: theme.id },
+                    })
+                  }
+                >
+                  <span
+                    className="theme-preview"
+                    aria-hidden="true"
+                    style={{ background: theme.background }}
+                  >
+                    <span style={{ background: theme.surface }}>
+                      <i style={{ background: theme.accent }} />
+                    </span>
+                  </span>
+                  <span>{he ? theme.he : theme.en}</span>
+                  <span aria-hidden="true">
+                    {data.profile.theme === theme.id ? "✓" : ""}
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : pane === "profile" ? (
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
@@ -220,7 +264,7 @@ export function SettingsScreen({
                       name: String(f.get("name")),
                       currency: f.get("currency") as "ILS",
                       language: f.get("language") as "en",
-                      theme: f.get("theme") as "dark",
+                      theme: f.get("theme") as Theme,
                     },
                   })
                 )
@@ -249,8 +293,11 @@ export function SettingsScreen({
               </Field>
               <Field label={tr("Appearance", "מראה")}>
                 <select name="theme" defaultValue={data.profile.theme}>
-                  <option value="dark">{tr("Dark", "כהה")}</option>
-                  <option value="light">{tr("Light", "בהיר")}</option>
+                  {themes.map((theme) => (
+                    <option key={theme.id} value={theme.id}>
+                      {he ? theme.he : theme.en}
+                    </option>
+                  ))}
                 </select>
               </Field>
               <p className="small muted">

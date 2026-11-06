@@ -83,7 +83,7 @@ export const dataSchema = z
       name: z.string().max(100),
       currency: z.enum(["ILS", "USD", "EUR", "GBP"]),
       language: z.enum(["en", "he"]),
-      theme: z.enum(["dark", "light"]),
+      theme: z.enum(["dark", "light", "midnight", "purple", "system"]),
     }),
   })
   .refine(

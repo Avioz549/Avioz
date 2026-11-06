@@ -1,0 +1,132 @@
+/* Theme preferences only affect presentation; financial records remain untouched. */
+:root[data-theme="midnight"] {
+  --bg: #070e20;
+  --panel: #0e1930;
+  --panel-soft: #12213b;
+  --sidebar: #0a1428;
+  --line: #30435e;
+  --text: #f3f7ff;
+  --muted: #b2c3dc;
+  --green: #69b6ff;
+  --green-bg: #18365d;
+  --accent: #69b6ff;
+  --accent-bright: #a5d7ff;
+  --accent-start: #69b6ff;
+  --accent-end: #a5d7ff;
+  --card-tint: #12213b;
+  --card-line: #30435e;
+  --nav-top: #0a1428f2;
+  --nav-bottom: #070e20;
+  --reference-green: #69b6ff;
+  --reference-bright: #a5d7ff;
+}
+:root[data-theme="purple"] {
+  --bg: #10091b;
+  --panel: #1a1028;
+  --panel-soft: #231333;
+  --sidebar: #150b20;
+  --line: #4a315f;
+  --text: #fcf5ff;
+  --muted: #ccbadb;
+  --green: #d3a1ff;
+  --green-bg: #402254;
+  --accent: #d3a1ff;
+  --accent-bright: #ebcaff;
+  --accent-start: #cf92ff;
+  --accent-end: #ebcaff;
+  --card-tint: #231333;
+  --card-line: #4a315f;
+  --nav-top: #150b20f2;
+  --nav-bottom: #10091b;
+  --reference-green: #d3a1ff;
+  --reference-bright: #ebcaff;
+}
+.theme-option {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel);
+  text-align: start;
+  margin-block: 8px;
+  min-height: 80px;
+}
+.theme-option[aria-pressed="true"] {
+  border-color: var(--green);
+  box-shadow: 0 0 0 1px var(--green);
+}
+.theme-option > span:nth-child(2) {
+  flex: 1;
+  font-weight: 650;
+}
+.theme-preview {
+  width: 88px;
+  height: 56px;
+  border-radius: 10px;
+  padding: 10px;
+  flex-shrink: 0;
+  border: 1px solid #87918c;
+}
+.theme-preview > span {
+  display: block;
+  height: 100%;
+  border-radius: 5px;
+  padding: 8px;
+}
+.theme-preview i {
+  display: block;
+  width: 65%;
+  height: 8px;
+  border-radius: 4px;
+}
+:root:is([data-theme="midnight"], [data-theme="purple"])
+  .approved-app
+  :is(
+    .reference-balance,
+    .reference-timer,
+    .reference-goal,
+    .budget-category-card,
+    .settings-row-group,
+    .reference-flow-cards > article,
+    .reference-summary > button,
+    .reference-recent
+  ) {
+  background: linear-gradient(125deg, var(--green-bg), var(--panel) 75%);
+  border-color: var(--line);
+}
+:root:is([data-theme="midnight"], [data-theme="purple"])
+  .approved-app
+  :is(input, select, textarea, .row-menu[open]) {
+  background: var(--panel-soft);
+  color: var(--text);
+  border-color: var(--line);
+}
+:root:is([data-theme="midnight"], [data-theme="purple"])
+  .approved-app
+  .primary {
+  color: #101021;
+}
+@media (prefers-reduced-motion: no-preference) {
+  body,
+  .approved-app .panel,
+  .theme-option,
+  .bottom-nav {
+    transition:
+      background-color 0.18s ease,
+      color 0.18s ease,
+      border-color 0.18s ease;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
