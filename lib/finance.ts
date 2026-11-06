@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { calculateShift } from "./payroll";
 export const transactionSchema = z.object({
   id: z.uuid(),
   title: z.string().trim().min(1).max(120),
@@ -7,8 +8,12 @@ export const transactionSchema = z.object({
   category: z.string().min(1).max(60),
   date: z.iso.date(),
   recurring: z.boolean(),
+  linkedShiftId: z.uuid().optional(),
+  recurrenceId: z.uuid().optional(),
 });
-export type Transaction = z.infer<typeof transactionSchema>;
+export type Transaction = z.infer<typeof transactionSchema> & {
+  projected?: boolean;
+};
 export const workplaceSchema = z.object({
   id: z.uuid(),
   name: z.string().trim().min(1).max(100),
@@ -18,6 +23,20 @@ export const workplaceSchema = z.object({
   overtimeRate: z.number().min(1).max(5),
   extraRate: z.number().min(1).max(5),
   premiumRate: z.number().min(1).max(5),
+  policy: z
+    .object({
+      weeklyHours: z.number().min(1).max(168),
+      weeklyRate: z.number().min(1).max(5),
+      weekStart: z.number().int().min(0).max(6),
+      saturday: z.boolean(),
+      holidayRate: z.number().min(1).max(5),
+      nightRate: z.number().min(1).max(5),
+      nightStart: z.number().int().min(0).max(23),
+      nightEnd: z.number().int().min(0).max(23),
+      combination: z.enum(["multiply", "maximum", "add"]),
+      dailyAcrossShifts: z.boolean(),
+    })
+    .optional(),
 });
 export type Workplace = z.infer<typeof workplaceSchema>;
 export const shiftSchema = z
@@ -30,6 +49,11 @@ export const shiftSchema = z
     paidBreak: z.boolean(),
     premium: z.boolean(),
     legacyGross: z.number().min(0).max(1e9).optional(),
+    tips: z.number().min(0).max(1e9).optional(),
+    travel: z.number().min(0).max(1e9).optional(),
+    notes: z.string().max(2000).optional(),
+    holiday: z.boolean().optional(),
+    scheduled: z.boolean().optional(),
     pauseStartedAt: z.iso.datetime({ offset: true }).optional(),
   })
   .refine(
@@ -41,6 +65,16 @@ export const shiftSchema = z
       !s.end ||
       s.breakMinutes <= (Date.parse(s.end) - Date.parse(s.start)) / 60000,
     "Break cannot exceed shift duration",
+  )
+  .refine(
+    (s) => !s.scheduled || Boolean(s.end),
+    "Scheduled shifts require an end time",
+  )
+  .refine(
+    (s) =>
+      !s.pauseStartedAt ||
+      (!s.end && Date.parse(s.pauseStartedAt) >= Date.parse(s.start)),
+    "Invalid pause timestamp",
   );
 export type Shift = z.infer<typeof shiftSchema>;
 export const goalSchema = z.object({
@@ -50,12 +84,14 @@ export const goalSchema = z.object({
   existing: z.number().min(0).max(1e9),
   monthly: z.number().min(0).max(1e9),
   date: z.iso.date().nullable(),
+  savingShare: z.number().min(0).max(100).optional(),
   contributions: z
     .array(
       z.object({
         id: z.uuid(),
         amount: z.number().positive().max(1e9),
         date: z.iso.date(),
+        kind: z.enum(["deposit", "withdrawal"]).optional(),
       }),
     )
     .max(10000),
@@ -68,6 +104,10 @@ export const dataSchema = z
     shifts: z.array(shiftSchema).max(10000),
     goals: z.array(goalSchema).max(100),
     budgets: z.record(z.string(), z.number().min(0).max(1e9)),
+    customCategories: z
+      .array(z.string().trim().min(1).max(60))
+      .max(100)
+      .optional(),
     reminders: z
       .array(
         z.object({
@@ -92,7 +132,7 @@ export const dataSchema = z
     "Shift must reference an existing workplace",
   )
   .refine(
-    (d) => d.shifts.filter((s) => !s.end).length <= 1,
+    (d) => d.shifts.filter((s) => !s.end && !s.scheduled).length <= 1,
     "Only one running shift allowed",
   )
   .refine(
@@ -106,6 +146,39 @@ export const dataSchema = z
         ...d.goals.map((g) => g.contributions),
       ].every((rows) => new Set(rows.map((r) => r.id)).size === rows.length),
     "Record IDs must be unique",
+  )
+  .refine(
+    (d) =>
+      d.transactions.every(
+        (t) =>
+          !t.linkedShiftId ||
+          (t.kind === "income" &&
+            !t.recurring &&
+            d.shifts.some(
+              (s) => s.id === t.linkedShiftId && s.end && !s.scheduled,
+            )),
+      ),
+    "Linked earnings require a completed shift and nonrecurring income",
+  )
+  .refine((d) => {
+    const occurrences = d.transactions
+      .filter((t) => t.recurrenceId)
+      .map((t) => `${t.recurrenceId}:${t.date.slice(0, 7)}`);
+    return new Set(occurrences).size === occurrences.length;
+  }, "A recurring occurrence can only be confirmed once per month")
+  .refine(
+    (d) =>
+      d.goals.every((g) => {
+        let balance = Math.round(g.existing * 100);
+        return [...g.contributions]
+          .sort((a, b) => a.date.localeCompare(b.date))
+          .every((c) => {
+            balance +=
+              Math.round(c.amount * 100) * (c.kind === "withdrawal" ? -1 : 1);
+            return balance >= 0;
+          });
+      }),
+    "Savings withdrawals cannot exceed available recorded savings",
   );
 export type FinanceData = z.infer<typeof dataSchema>;
 export function emptyData(): FinanceData {
@@ -120,42 +193,8 @@ export function emptyData(): FinanceData {
   };
 }
 export function shiftPay(shift: Shift, workplace: Workplace, now = new Date()) {
-  const elapsed = Math.max(
-    0,
-    ((shift.end
-      ? Date.parse(shift.end)
-      : shift.pauseStartedAt && !shift.paidBreak
-        ? Math.min(Date.parse(shift.pauseStartedAt), now.getTime())
-        : now.getTime()) -
-      Date.parse(shift.start)) /
-      3600000,
-  );
-  const hours = Math.max(
-    0,
-    elapsed - (shift.paidBreak ? 0 : shift.breakMinutes / 60),
-  );
-  const regular = Math.min(hours, workplace.regularHours);
-  const overtime = Math.min(
-    Math.max(0, hours - workplace.regularHours),
-    workplace.overtimeHours,
-  );
-  const extra = Math.max(
-    0,
-    hours - workplace.regularHours - workplace.overtimeHours,
-  );
-  return {
-    hours,
-    gross:
-      shift.legacyGross ??
-      Math.round(
-        (regular +
-          overtime * workplace.overtimeRate +
-          extra * workplace.extraRate) *
-          workplace.wage *
-          (shift.premium ? workplace.premiumRate : 1) *
-          100,
-      ) / 100,
-  };
+  const { hours, gross } = calculateShift(shift, workplace, now);
+  return { hours, gross };
 }
 // Recurrences are projected virtually by month; no duplicate database inserts.
 export function monthTransactions(
@@ -167,17 +206,36 @@ export function monthTransactions(
     if (!t.recurring || t.date.slice(0, 7) > month) return [];
     const [y, m] = month.split("-").map(Number);
     const day = Math.min(Number(t.date.slice(8)), new Date(y, m, 0).getDate());
-    return [{ ...t, date: `${month}-${String(day).padStart(2, "0")}` }];
+    if (
+      transactions.some(
+        (record) =>
+          record.recurrenceId === t.id && record.date.startsWith(month),
+      )
+    )
+      return [];
+    return [
+      {
+        ...t,
+        projected: true,
+        date: `${month}-${String(day).padStart(2, "0")}`,
+      },
+    ];
   });
+}
+export function recordedMonthTransactions(
+  transactions: Transaction[],
+  month: string,
+) {
+  return transactions.filter((t) => t.date.startsWith(month) && !t.projected);
 }
 export function totals(transactions: Transaction[]) {
   const income =
     transactions
-      .filter((t) => t.kind === "income")
+      .filter((t) => t.kind === "income" && !t.projected)
       .reduce((s, t) => s + Math.round(t.amount * 100), 0) / 100;
   const expenses =
     transactions
-      .filter((t) => t.kind === "expense")
+      .filter((t) => t.kind === "expense" && !t.projected)
       .reduce((s, t) => s + Math.round(t.amount * 100), 0) / 100;
   return {
     income,
@@ -188,7 +246,11 @@ export function totals(transactions: Transaction[]) {
 export function goalSaved(g: Goal) {
   return (
     (Math.round(g.existing * 100) +
-      g.contributions.reduce((s, c) => s + Math.round(c.amount * 100), 0)) /
+      g.contributions.reduce(
+        (s, c) =>
+          s + Math.round(c.amount * 100) * (c.kind === "withdrawal" ? -1 : 1),
+        0,
+      )) /
     100
   );
 }
@@ -254,13 +316,14 @@ export function csvExport(transactions: Transaction[]) {
   return (
     "\uFEFF" +
     [
-      ["Date", "Description", "Category", "Type", "Amount"],
+      ["Date", "Description", "Category", "Type", "Amount", "Status"],
       ...transactions.map((t) => [
         t.date,
         t.title,
         t.category,
         t.kind,
         t.amount,
+        t.projected ? "Expected" : "Recorded",
       ]),
     ]
       .map((row) => row.map(cell).join(","))

@@ -158,7 +158,7 @@ export async function recoveryHistory(): Promise<Recovery[]> {
 export function backupDocument(data: FinanceData) {
   return {
     application: "SAVIO",
-    schemaVersion: 3,
+    schemaVersion: 4,
     exportedAt: new Date().toISOString(),
     data: dataSchema.parse(data),
   };
@@ -171,7 +171,7 @@ export function parseBackup(raw: string): {
     throw new Error("Backup exceeds the 10 MB limit.");
   const parsed = JSON.parse(raw);
   if (parsed && parsed.application === "SAVIO") {
-    if (parsed.schemaVersion !== 3)
+    if (parsed.schemaVersion !== 3 && parsed.schemaVersion !== 4)
       throw new Error(
         "This backup uses an unsupported version. Update SAVIO before restoring it.",
       );

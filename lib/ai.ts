@@ -1,7 +1,7 @@
 import { z } from "zod";
 import {
   totals,
-  monthTransactions,
+  recordedMonthTransactions,
   goalSaved,
   type FinanceData,
 } from "./finance";
@@ -29,7 +29,7 @@ export function aiPayload(
   month: string,
   consent: boolean,
 ) {
-  const sum = totals(monthTransactions(data.transactions, month));
+  const sum = totals(recordedMonthTransactions(data.transactions, month));
   return {
     message,
     consent,
