@@ -20,7 +20,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import {
-  monthTransactions,
+  recordedMonthTransactions,
   totals,
   goalSaved,
   type FinanceData,
@@ -48,7 +48,7 @@ export function ReferenceDashboard({
     tr = (en: string, heb: string) => (he ? heb : en);
   const [hidden, setHidden] = useState(false),
     [kind, setKind] = useState<"expense" | "income">("expense");
-  const sum = totals(monthTransactions(data.transactions, month));
+  const sum = totals(recordedMonthTransactions(data.transactions, month));
   const [y, m] = month.split("-").map(Number),
     days = new Date(y, m, 0).getDate();
   const chart = Array.from({ length: 7 }, (_, i) => {
@@ -56,7 +56,7 @@ export function ReferenceDashboard({
       to = Math.floor(((i + 1) * days) / 7);
     return {
       label: String(from),
-      value: monthTransactions(data.transactions, month)
+      value: recordedMonthTransactions(data.transactions, month)
         .filter(
           (t) =>
             t.kind === kind &&
@@ -69,7 +69,7 @@ export function ReferenceDashboard({
   const last = chart.findLastIndex((c) => c.value > 0);
   const previous = new Date(y, m - 2, 1);
   const prev = totals(
-    monthTransactions(
+    recordedMonthTransactions(
       data.transactions,
       `${previous.getFullYear()}-${String(previous.getMonth() + 1).padStart(2, "0")}`,
     ),

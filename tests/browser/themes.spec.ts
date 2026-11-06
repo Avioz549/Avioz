@@ -18,6 +18,9 @@ test("theme previews persist and system follows device with financial records pr
     ).toHaveAttribute("aria-pressed", "true");
   }
   await page.getByRole("button", { name: "סגול ניאון", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "סגול ניאון", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "purple");
   await page.getByRole("button", { name: /עיצוב האפליקציה/ }).click();

@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Plus, Play, Pause, Square, Clock3, CalendarDays } from "lucide-react";
 import { shiftPay, type FinanceData } from "@/lib/finance";
-import { localMonth } from "@/lib/time";
+import { monthlyPayroll } from "@/lib/payroll";
 export function ReferenceWork({
   data,
   month,
@@ -25,21 +25,17 @@ export function ReferenceWork({
   const he = data.profile.language === "he",
     tr = (en: string, heb: string) => (he ? heb : en),
     [workplaceId, setWorkplaceId] = useState("");
-  const active = data.shifts.find((s) => !s.end),
+  const active = data.shifts.find((s) => !s.end && !s.scheduled),
     work =
       data.workplaces.find(
         (w) => w.id === (active?.workplaceId || workplaceId),
       ) || data.workplaces[0];
-  const rows = data.shifts.filter((s) => localMonth(s.start) === month);
-  const results = rows.map((s) =>
-    shiftPay(
-      s,
-      data.workplaces.find((w) => w.id === s.workplaceId)!,
-      now,
-    ),
+  const report = monthlyPayroll(data, month, now);
+  const rows = data.shifts.filter((s) =>
+    report.segments.some((p) => p.shiftId === s.id && p.date.startsWith(month)),
   );
-  const gross = results.reduce((n, p) => n + p.gross, 0),
-    hours = results.reduce((n, p) => n + p.hours, 0);
+  const gross = report.gross,
+    hours = report.hours;
   const current = active && work ? shiftPay(active, work, now).hours * 3600 : 0;
   const timer = [
     Math.floor(current / 3600),
@@ -85,6 +81,12 @@ export function ReferenceWork({
                 "בחרו מקום עבודה והפעילו את הטיימר",
               )}
         </small>
+        {active && work && (
+          <p className="live-pay">
+            {money(report.byShift[active.id]?.gross ?? 0)} · {money(work.wage)}{" "}
+            / {tr("hour", "שעה")}
+          </p>
+        )}
         {active ? (
           <div className="timer-controls">
             <button

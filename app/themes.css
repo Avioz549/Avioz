@@ -130,3 +130,116 @@
     scroll-behavior: auto !important;
   }
 }
+/* Match the work and navigation surfaces to the selected accent palette. */
+:root:is([data-theme="midnight"], [data-theme="purple"])
+  .approved-app
+  .work-timer-card {
+  background: linear-gradient(125deg, var(--green-bg), var(--panel) 80%);
+  border-color: var(--line);
+  box-shadow: inset 0 1px color-mix(in srgb, var(--green) 15%, transparent);
+}
+:root:is([data-theme="midnight"], [data-theme="purple"])
+  .approved-app
+  :is(
+    .work-segments,
+    .work-month-summary > div,
+    .workplace-manager,
+    .workplace,
+    .ai-suggestions button,
+    .chat-message,
+    .more-card
+  ) {
+  background: var(--panel);
+  border-color: var(--line);
+  color: var(--text);
+}
+:root:is([data-theme="midnight"], [data-theme="purple"])
+  .approved-app
+  :is(
+    .bottom-nav button.active,
+    .sidebar button.active,
+    .bottom-nav .active,
+    .sidebar .active
+  ) {
+  color: var(--green);
+}
+:root:is([data-theme="midnight"], [data-theme="purple"])
+  .approved-app
+  .reference-timer {
+  background: transparent;
+}
+:root:is([data-theme="midnight"], [data-theme="purple"])
+  .approved-app
+  .work-month-summary {
+  background: var(--panel);
+}
+:root:is([data-theme="midnight"], [data-theme="purple"])
+  .approved-app
+  :is(
+    .bottom-nav button.selected,
+    .sidebar button[aria-current="page"],
+    .bottom-nav button.selected > svg
+  ) {
+  color: var(--green);
+}
+/* Light surfaces need dark foregrounds, including the original work widgets. */
+:root[data-theme="light"]
+  .approved-app
+  :is(
+    .work-timer-card,
+    .work-segments,
+    .work-month-summary,
+    .workplace-manager,
+    .ai-suggestions button,
+    .chat-message,
+    .more-card,
+    .row-menu[open] .row-actions
+  ) {
+  background: var(--panel);
+  color: var(--text);
+  border-color: var(--line);
+  box-shadow: none;
+}
+:root[data-theme="light"]
+  .approved-app
+  :is(
+    .reference-timer,
+    .work-month-summary strong,
+    .workplace-manager summary
+  ) {
+  color: var(--text);
+  background: transparent;
+}
+:root[data-theme="light"]
+  .approved-app
+  :is(
+    .work-month-summary span,
+    .work-timer-card small,
+    .reference-goal small,
+    .reference-goal .small
+  ) {
+  color: var(--muted);
+}
+:root[data-theme="light"] .approved-app :is(input, select, textarea) {
+  background: var(--panel-soft);
+  color: var(--text);
+  border-color: var(--line);
+}
+:root[data-theme="light"]
+  .approved-app
+  :is(
+    .bottom-nav button.selected,
+    .bottom-nav button.selected > svg,
+    .sidebar button[aria-current="page"]
+  ) {
+  color: var(--green);
+}
+:root[data-theme="light"] .approved-app .work-timer-card > span {
+  color: var(--muted);
+}
+:root[data-theme="light"]
+  .approved-app
+  .reference-mobile-bar
+  button:not(.positive) {
+  color: var(--text);
+}

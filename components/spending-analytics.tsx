@@ -11,7 +11,11 @@ import {
   YAxis,
   CartesianGrid,
 } from "recharts";
-import { totals, monthTransactions, type Transaction } from "@/lib/finance";
+import {
+  totals,
+  recordedMonthTransactions,
+  type Transaction,
+} from "@/lib/finance";
 import { categoryLabel } from "@/lib/categories";
 const colors = [
   "#81e7af",
@@ -33,7 +37,7 @@ export function SpendingAnalytics({
   he: boolean;
   money: (n: number) => string;
 }) {
-  const current = monthTransactions(transactions, month);
+  const current = recordedMonthTransactions(transactions, month);
   const grouped = new Map<string, number>();
   for (const row of current.filter((t) => t.kind === "expense"))
     grouped.set(row.category, (grouped.get(row.category) || 0) + row.amount);
@@ -46,7 +50,7 @@ export function SpendingAnalytics({
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     return {
       label: d.toLocaleDateString(he ? "he-IL" : "en-US", { month: "short" }),
-      ...totals(monthTransactions(transactions, key)),
+      ...totals(recordedMonthTransactions(transactions, key)),
     };
   });
   return (

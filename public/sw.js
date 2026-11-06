@@ -1,6 +1,6 @@
 // Only the generic app shell, icons and build assets are cached. Financial
 // records stay exclusively in IndexedDB; all API requests use the network.
-const CACHE = "savio-public-shell-v3";
+const CACHE = "savio-public-shell-v4";
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE).then(async (cache) => {

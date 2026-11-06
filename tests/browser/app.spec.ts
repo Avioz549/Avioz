@@ -462,7 +462,7 @@ test("AI has local insights without authentication; retired auth routes redirect
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Send message", exact: true }),
-  ).toBeDisabled();
+  ).toBeEnabled();
   await expect(page.getByText("Sign in", { exact: true })).toHaveCount(0);
   const res = await request.post("/api/ai", {
     headers: { origin: "https://untrusted.example" },
@@ -497,7 +497,11 @@ test("installed shell opens offline with local records and never caches financia
   await page.reload();
   await expect(page.locator(".hero-balance")).toContainText("123");
   const cached = await page.evaluate(async () => {
-    const cache = await caches.open("savio-public-shell-v3");
+    const name = (await caches.keys()).find((k) =>
+      k.startsWith("savio-public-shell-"),
+    );
+    if (!name) throw new Error("Missing offline shell cache");
+    const cache = await caches.open(name);
     return {
       urls: (await cache.keys()).map((r) => r.url),
       html: await (await cache.match("/"))!.text(),

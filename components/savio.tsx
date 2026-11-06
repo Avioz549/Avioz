@@ -1,4 +1,17 @@
 "use client";
+import { monthlyPayroll } from "@/lib/payroll";
+import { localAnswer, goalShifts } from "@/lib/insights";
+import {
+  SalaryOverview,
+  ShiftCalendar,
+  ReportsScreen,
+  InsightsPanel,
+  CategoryManager,
+} from "./production-suite";
+import { PayrollFields, ShiftExtras } from "./payroll-fields";
+import { ConfirmRecurring } from "./confirm-recurring";
+import { AppUpdate } from "./app-update";
+import { UserGuide } from "./user-guide";
 import { resolveTheme } from "@/lib/themes";
 import Link from "next/link";
 import { Fragment, useEffect, useState, useRef } from "react";
@@ -31,7 +44,6 @@ import {
 import {
   emptyData,
   dataSchema,
-  shiftPay,
   monthTransactions,
   totals,
   goalSaved,
@@ -48,7 +60,6 @@ import {
   type Workplace,
 } from "@/lib/finance";
 import { words } from "@/lib/i18n";
-import { localMonth } from "@/lib/time";
 import { useReminders } from "@/lib/use-reminders";
 import { categoryLabel } from "@/lib/categories";
 import { SpendingAnalytics } from "./spending-analytics";
@@ -80,12 +91,14 @@ type Tab =
   | "settings"
   | "more"
   | "challenges"
-  | "welcome";
+  | "welcome"
+  | "reports"
+  | "guide";
 type Editor =
   | { kind: "transaction"; value?: Transaction }
   | { kind: "goal"; value?: Goal }
   | { kind: "workplace"; value?: Workplace }
-  | { kind: "shift"; value?: Shift }
+  | { kind: "shift"; value?: Shift; date?: string }
   | { kind: "contribution"; value: Goal }
   | null;
 const baseCategories = [
@@ -153,6 +166,7 @@ export function Savio() {
   const categories = [
     ...new Set([
       ...baseCategories,
+      ...(data.customCategories ?? []),
       ...data.transactions.map((t) => t.category),
       ...Object.keys(data.budgets).map((k) => k.slice(k.indexOf(":") + 1)),
     ]),
@@ -179,6 +193,7 @@ export function Savio() {
           "transactions",
           "shifts",
           "goals",
+          "reports",
           "budgets",
           "calendar",
           "ai",
@@ -235,9 +250,17 @@ export function Savio() {
     };
   }, []);
   useEffect(() => {
-    if (!data.shifts.some((s) => !s.end && !s.pauseStartedAt)) return;
-    const timer = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(timer);
+    if (!data.shifts.some((s) => !s.end && (!s.pauseStartedAt || s.paidBreak)))
+      return;
+    const refresh = () => setNow(new Date());
+    const timer = setInterval(refresh, 1000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
   }, [data.shifts]);
   useEffect(() => {
     document.documentElement.lang = data.profile.language;
@@ -267,7 +290,11 @@ export function Savio() {
     if (saving.current || !ready) return false;
     const parsed = dataSchema.safeParse(next);
     if (!parsed.success) {
-      setMessage(parsed.error.issues[0].message);
+      setMessage(
+        he
+          ? "לא ניתן לשמור: בדקו סכומים, זמני משמרת, יתרת חיסכון והפניות לרשומות."
+          : parsed.error.issues[0].message,
+      );
       return false;
     }
     saving.current = true;
@@ -294,19 +321,9 @@ export function Savio() {
     he ? "he-IL" : "en-US",
     { month: "long", year: "numeric" },
   );
-  const pay = data.shifts
-    .filter((s) => localMonth(s.start) === month)
-    .reduce(
-      (n, s) =>
-        n +
-        shiftPay(
-          s,
-          data.workplaces.find((w) => w.id === s.workplaceId)!,
-          now,
-        ).gross,
-      0,
-    );
-  const activeShift = data.shifts.find((s) => !s.end);
+  const payroll = monthlyPayroll(data, month, now);
+  const pay = payroll.gross;
+  const activeShift = data.shifts.find((s) => !s.end && !s.scheduled);
   async function remove(
     kind: "transactions" | "goals" | "shifts" | "workplaces",
     key: string,
@@ -319,7 +336,17 @@ export function Savio() {
       setMessage("Remove associated shifts before deleting a workplace.");
       return;
     }
-    await commit({ ...data, [kind]: data[kind].filter((x) => x.id !== key) });
+    await commit({
+      ...data,
+      [kind]: data[kind].filter((x) => x.id !== key),
+      ...(kind === "shifts"
+        ? {
+            transactions: data.transactions.map((t) =>
+              t.linkedShiftId === key ? { ...t, linkedShiftId: undefined } : t,
+            ),
+          }
+        : {}),
+    });
   }
   async function startShift(workplaceId: string) {
     if (activeShift) return;
@@ -403,6 +430,8 @@ export function Savio() {
           category: v("category"),
           date: v("date"),
           recurring: checked("recurring"),
+          linkedShiftId: v("linkedShiftId") || undefined,
+          recurrenceId: editor.value?.recurrenceId,
         });
         next.transactions = editor.value
           ? data.transactions.map((x) => (x.id === value.id ? value : x))
@@ -418,20 +447,50 @@ export function Savio() {
           overtimeRate: n("overtimeRate"),
           extraRate: n("extraRate"),
           premiumRate: n("premiumRate"),
+          policy: checked("enablePolicy")
+            ? {
+                weeklyHours: n("weeklyHours"),
+                weeklyRate: n("weeklyRate"),
+                weekStart: n("weekStart"),
+                holidayRate: n("holidayRate"),
+                nightRate: n("nightRate"),
+                nightStart: n("nightStart"),
+                nightEnd: n("nightEnd"),
+                combination: v("combination"),
+                saturday: checked("saturday"),
+                dailyAcrossShifts: checked("dailyAcrossShifts"),
+              }
+            : undefined,
         });
         next.workplaces = editor.value
           ? data.workplaces.map((x) => (x.id === value.id ? value : x))
           : [...data.workplaces, value];
       }
       if (editor.kind === "shift") {
+        if (
+          v("end") &&
+          new Date(v("end")).getTime() > new Date().getTime() &&
+          !checked("scheduled")
+        )
+          throw new Error(
+            he
+              ? "משמרת עתידית יש לסמן כמתוכננת."
+              : "Mark future shifts as scheduled.",
+          );
         const value = shiftSchema.parse({
           id: editor.value?.id || id(),
           workplaceId: v("workplaceId"),
           start: new Date(v("start")).toISOString(),
-          end: new Date(v("end")).toISOString(),
+          end: v("end") ? new Date(v("end")).toISOString() : null,
           breakMinutes: n("breakMinutes"),
           paidBreak: checked("paidBreak"),
           premium: checked("premium"),
+          tips: n("tips"),
+          travel: n("travel"),
+          notes: v("notes"),
+          holiday: checked("holiday"),
+          scheduled: checked("scheduled"),
+          pauseStartedAt: !v("end") ? editor.value?.pauseStartedAt : undefined,
         });
         next.shifts = editor.value
           ? data.shifts.map((x) => (x.id === value.id ? value : x))
@@ -446,6 +505,7 @@ export function Savio() {
           monthly: n("monthly"),
           date: v("date") || null,
           contributions: editor.value?.contributions || [],
+          savingShare: n("savingShare"),
         });
         next.goals = editor.value
           ? data.goals.map((x) => (x.id === value.id ? value : x))
@@ -461,7 +521,12 @@ export function Savio() {
                 ...g,
                 contributions: [
                   ...g.contributions,
-                  { id: id(), amount, date: v("date") },
+                  {
+                    id: id(),
+                    amount,
+                    date: v("date"),
+                    kind: v("contributionKind") as "deposit" | "withdrawal",
+                  },
                 ],
               }
             : g,
@@ -480,6 +545,15 @@ export function Savio() {
     e.preventDefault();
     if (!question.trim() || busy) return;
     const text = question;
+    if (!aiAvailable) {
+      setChat((c) => [
+        ...c,
+        { role: "You", text },
+        { role: "SAVIO", text: localAnswer(text, data, month, now) },
+      ]);
+      setQuestion("");
+      return;
+    }
     setChat((c) => [...c, { role: "You", text }]);
     setQuestion("");
     setBusy(true);
@@ -490,12 +564,22 @@ export function Savio() {
         body: JSON.stringify(aiPayload(text, data, month, consent)),
       });
       const result = await res.json();
+      if (!res.ok || !result.reply) {
+        setChat((c) => [
+          ...c,
+          { role: "SAVIO", text: localAnswer(text, data, month, now) },
+        ]);
+        return;
+      }
       setChat((c) => [
         ...c,
         { role: "SAVIO", text: result.reply || result.error },
       ]);
     } catch {
-      setMessage("Unable to reach AI. Please use the local insights.");
+      setChat((c) => [
+        ...c,
+        { role: "SAVIO", text: localAnswer(text, data, month, now) },
+      ]);
     } finally {
       setBusy(false);
       setConsent(false);
@@ -508,36 +592,45 @@ export function Savio() {
     { key: "goals", icon: Target },
     { key: "budgets", icon: ChartPie },
     { key: "calendar", icon: CalendarDays },
+    { key: "reports", icon: Download },
     { key: "ai", icon: Sparkles },
     { key: "challenges", icon: TrendingUp },
     { key: "settings", icon: Settings },
   ] as const;
   const label = (key: Tab) =>
-    key === "welcome"
+    key === "guide"
       ? he
-        ? "ברוכים הבאים"
-        : "Welcome"
-      : key === "more"
+        ? "מדריך שימוש"
+        : "User guide"
+      : key === "reports"
         ? he
-          ? "עוד"
-          : "More"
-        : key === "challenges"
+          ? "דוחות"
+          : "Reports"
+        : key === "welcome"
           ? he
-            ? "אתגרים"
-            : "Challenges"
-          : key === "overview"
+            ? "ברוכים הבאים"
+            : "Welcome"
+          : key === "more"
             ? he
-              ? "בית"
-              : "Home"
-            : key === "shifts"
+              ? "עוד"
+              : "More"
+            : key === "challenges"
               ? he
-                ? "עבודה"
-                : "Work"
-              : key === "goals"
+                ? "אתגרים"
+                : "Challenges"
+              : key === "overview"
                 ? he
-                  ? "חיסכון"
-                  : "Savings"
-                : t[key];
+                  ? "בית"
+                  : "Home"
+                : key === "shifts"
+                  ? he
+                    ? "עבודה"
+                    : "Work"
+                  : key === "goals"
+                    ? he
+                      ? "חיסכון"
+                      : "Savings"
+                    : t[key];
   const primaryNav = [
     { key: "overview", icon: LayoutDashboard },
     { key: "transactions", icon: ArrowLeftRight },
@@ -545,6 +638,15 @@ export function Savio() {
     { key: "goals", icon: Target },
     { key: "more", icon: Menu },
   ] as const;
+  async function recordOccurrence(source: Transaction) {
+    const record = transactionSchema.parse({
+      ...source,
+      id: id(),
+      recurring: false,
+      recurrenceId: source.id,
+    });
+    await commit({ ...data, transactions: [...data.transactions, record] });
+  }
   const transactionList = (items: Transaction[]) =>
     items.length ? (
       <div className="transaction-list">
@@ -574,7 +676,17 @@ export function Savio() {
                 <strong>{x.title}</strong>
                 <small>
                   {categoryLabel(x.category, he)} {x.recurring ? "· ↻" : ""}
+                  {x.projected &&
+                    (he ? " · צפויה, טרם אושרה" : " · Expected, not recorded")}
                 </small>
+                {x.projected && (
+                  <ConfirmRecurring
+                    transaction={x}
+                    onConfirm={recordOccurrence}
+                    busy={busy}
+                    he={he}
+                  />
+                )}
               </div>
               <div className="transaction-amount">
                 <strong className={x.kind === "income" ? "positive" : ""}>
@@ -679,6 +791,16 @@ export function Savio() {
                   {he ? "תכנית והפקדות" : "Plan & contributions"}
                 </summary>
                 <p className="small muted">
+                  {goalShifts(data, g, now, payroll.byShift) === null
+                    ? he
+                      ? "הגדירו אחוז חיסכון ותעדו משמרות שהסתיימו לקבלת תחזית לפי משמרות."
+                      : "Set a saving share and record completed shifts for a shift-based projection."
+                    : he
+                      ? `נותרו כ־${goalShifts(data, g, now, payroll.byShift)} משמרות ממוצעות בחיסכון של ${g.savingShare}% מהברוטו המשוער.`
+                      : `About ${goalShifts(data, g, now, payroll.byShift)} average shifts at ${g.savingShare}% of estimated gross.`}
+                </p>
+
+                <p className="small muted">
                   {he ? "תכנית מותאמת לתזרים" : "Plan based on cash flow"}:{" "}
                   {money(plan.monthly)} / {he ? "חודש" : "mo"} ·{" "}
                   {plan.completion ||
@@ -729,7 +851,8 @@ export function Savio() {
                 {g.contributions.map((c) => (
                   <div className="flex-between small" key={c.id}>
                     <span>
-                      {c.date} · {money(c.amount)}
+                      {c.date} · {c.kind === "withdrawal" ? "−" : "+"}
+                      {money(c.amount)}
                     </span>
                     <button
                       className="icon-button"
@@ -815,6 +938,8 @@ export function Savio() {
         )}
       </main>
     );
+  if (tab === "guide")
+    return <UserGuide he={he} onComplete={() => setTab("overview")} />;
   if (tab === "welcome")
     return (
       <WelcomeScreen
@@ -825,12 +950,7 @@ export function Savio() {
             profile: { ...data.profile, language: he ? "en" : "he" },
           })
         }
-        onStart={() => {
-          try {
-            localStorage.setItem("savio-welcome-seen", "1");
-          } catch {}
-          setTab("overview");
-        }}
+        onStart={() => setTab("guide")}
       />
     );
   return (
@@ -1020,6 +1140,7 @@ export function Savio() {
               </button>
             </div>
           </div>
+          <AppUpdate he={he} busy={busy || Boolean(editor)} />
           {message && (
             <div role="status" className="notice">
               <span>{message}</span>
@@ -1029,21 +1150,26 @@ export function Savio() {
             </div>
           )}
           {tab === "overview" && (
-            <ReferenceDashboard
-              data={data}
-              month={month}
-              money={money}
-              pay={pay}
-              onAdd={() => setEditor({ kind: "transaction" })}
-              onWork={() => setTab("shifts")}
-              onSavings={() => setTab("goals")}
-              recent={transactionList(
-                [...txs]
-                  .reverse()
-                  .sort((a, b) => b.date.localeCompare(a.date))
-                  .slice(0, 3),
-              )}
-            />
+            <>
+              <ReferenceDashboard
+                data={data}
+                month={month}
+                money={money}
+                pay={pay}
+                onAdd={() => setEditor({ kind: "transaction" })}
+                onWork={() => setTab("shifts")}
+                onSavings={() => setTab("goals")}
+                recent={transactionList(
+                  txs
+                    .filter((x) => !x.projected)
+                    .reverse()
+                    .sort((a, b) => b.date.localeCompare(a.date))
+                    .slice(0, 3),
+                )}
+              />
+              <SalaryOverview data={data} month={month} now={now} compact />
+              <InsightsPanel data={data} month={month} now={now} />
+            </>
           )}
           {tab === "transactions" && (
             <article className="panel">
@@ -1154,6 +1280,15 @@ export function Savio() {
                 onPause={togglePause}
                 onManual={() => setEditor({ kind: "shift" })}
               />
+              <SalaryOverview data={data} month={month} now={now} />
+              <ShiftCalendar
+                data={data}
+                month={month}
+                now={now}
+                onMonth={changeMonth}
+                onAdd={(date) => setEditor({ kind: "shift", date })}
+                onEdit={(value) => setEditor({ kind: "shift", value })}
+              />
               <div className="section-toolbar">
                 <div>
                   <h2>{money(pay)}</h2>
@@ -1249,16 +1384,30 @@ export function Savio() {
                     </thead>
                     <tbody>
                       {data.shifts
-                        .filter((s) => localMonth(s.start) === month)
+                        .filter((s) =>
+                          payroll.segments.some(
+                            (p) =>
+                              p.shiftId === s.id && p.date.startsWith(month),
+                          ),
+                        )
                         .map((s) => {
                           const w = data.workplaces.find(
                               (w) => w.id === s.workplaceId,
                             )!,
-                            p = shiftPay(s, w, now);
+                            p = payroll.byShift[s.id];
                           return (
                             <tr key={s.id}>
                               <td>
                                 {w.name}
+                                {s.scheduled && (
+                                  <small>
+                                    {" "}
+                                    · {he ? "מתוכננת" : "Scheduled"}
+                                  </small>
+                                )}
+                                {s.notes && (
+                                  <small className="muted"> · {s.notes}</small>
+                                )}
                                 {s.premium
                                   ? he
                                     ? " · תוספת שכר"
@@ -1307,8 +1456,8 @@ export function Savio() {
                 </div>
                 <p className="small muted">
                   {he
-                    ? "כללי השכר ניתנים להגדרה לכל מקום עבודה. תוספת סופ״ש וחג מופעלת ידנית למשמרת ומכפילה את אומדן השכר כולל שעות נוספות. אין כאן חישוב נטו או ייעוץ משפטי."
-                    : "Configure payroll rules per workplace. Weekend/holiday premium is selected per shift and multiplies the gross estimate including overtime. No net salary or tax calculation is implied."}
+                    ? "כללי השכר לפי ההסכם של כל מקום עבודה. ניתן להגדיר שבת אוטומטית, חג, לילה ושילוב תוספות בהגדרות המתקדמות. החישוב הוא ברוטו משוער ולא נטו."
+                    : "Configure daily, weekly, night, Saturday and holiday policies per workplace. Estimates are gross before deductions, never guaranteed net pay."}
                 </p>
               </article>
             </>
@@ -1368,7 +1517,11 @@ export function Savio() {
                         Math.min(
                           100,
                           (data.goals.reduce(
-                            (n, g) => n + g.contributions.length,
+                            (n, g) =>
+                              n +
+                              g.contributions.filter(
+                                (c) => c.kind !== "withdrawal",
+                              ).length,
                             0,
                           ) /
                             3) *
@@ -1378,10 +1531,15 @@ export function Savio() {
                   />
                 </div>
                 <p className="positive">
-                  {data.goals.reduce((n, g) => n + g.contributions.length, 0) >=
-                  3
+                  {data.goals.reduce(
+                    (n, g) =>
+                      n +
+                      g.contributions.filter((c) => c.kind !== "withdrawal")
+                        .length,
+                    0,
+                  ) >= 3
                     ? "✓ Habit builder achievement unlocked"
-                    : `${data.goals.reduce((n, g) => n + g.contributions.length, 0)} / 3 contributions`}
+                    : `${data.goals.reduce((n, g) => n + g.contributions.filter((c) => c.kind !== "withdrawal").length, 0)} / 3 contributions`}
                 </p>
               </div>
             </>
@@ -1390,6 +1548,12 @@ export function Savio() {
             <div className="spaced">
               <PurchaseCalculator workplaces={data.workplaces} he={he} />
             </div>
+          )}
+          {tab === "transactions" && (
+            <CategoryManager data={data} onSave={commit} busy={busy} />
+          )}
+          {tab === "reports" && (
+            <ReportsScreen data={data} month={month} now={now} />
           )}
           {tab === "budgets" && (
             <BudgetScreen
@@ -1490,7 +1654,7 @@ export function Savio() {
                     />
                     {t.consent}
                   </label>
-                  <button className="primary" disabled={busy || !aiAvailable}>
+                  <button className="primary" disabled={busy}>
                     <Sparkles size={16} />
                     {busy ? "Thinking…" : t.send}
                   </button>
@@ -1532,6 +1696,7 @@ export function Savio() {
                 .filter((n) =>
                   [
                     "budgets",
+                    "reports",
                     "calendar",
                     "ai",
                     "challenges",
@@ -1590,7 +1755,10 @@ export function Savio() {
                 {
                   title: he ? "בונים הרגל חיסכון" : "A saving habit",
                   count: data.goals.reduce(
-                    (n, g) => n + g.contributions.length,
+                    (n, g) =>
+                      n +
+                      g.contributions.filter((c) => c.kind !== "withdrawal")
+                        .length,
                     0,
                   ),
                   target: 3,
@@ -1641,7 +1809,7 @@ export function Savio() {
               data={data}
               onSave={commit}
               busy={busy}
-              onWelcome={() => setTab("welcome")}
+              onWelcome={() => setTab("guide")}
               onAI={() => setTab("ai")}
             />
           )}
@@ -1713,9 +1881,14 @@ export function Savio() {
           const selected =
             tab === key ||
             (key === "more" &&
-              ["budgets", "calendar", "ai", "challenges", "settings"].includes(
-                tab,
-              ));
+              [
+                "budgets",
+                "calendar",
+                "reports",
+                "ai",
+                "challenges",
+                "settings",
+              ].includes(tab));
           return (
             <button
               aria-current={selected ? "page" : undefined}
@@ -1786,13 +1959,20 @@ export function Savio() {
                   </Field>
                 </div>
                 <Field label={t.category}>
-                  <select name="category" defaultValue={editor.value?.category}>
+                  <input
+                    name="category"
+                    list="transaction-categories"
+                    maxLength={60}
+                    defaultValue={editor.value?.category || categories[0]}
+                    required
+                  />
+                  <datalist id="transaction-categories">
                     {categories.map((c) => (
                       <option value={c} key={c}>
                         {categoryLabel(c, he)}
                       </option>
                     ))}
-                  </select>
+                  </datalist>
                 </Field>
                 <Field label={t.date}>
                   <input
@@ -1801,6 +1981,31 @@ export function Savio() {
                     defaultValue={editor.value?.date || today()}
                     required
                   />
+                </Field>
+                <Field
+                  label={
+                    he
+                      ? "קישור למשמרת (להכנסה בלבד, ללא הוספת האומדן ליתרה)"
+                      : "Link a shift (income only; estimate is never added to balance)"
+                  }
+                >
+                  <select
+                    name="linkedShiftId"
+                    defaultValue={editor.value?.linkedShiftId || ""}
+                  >
+                    <option value="">{he ? "ללא קישור" : "No link"}</option>
+                    {data.shifts
+                      .filter((s) => s.end && !s.scheduled)
+                      .map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {
+                            data.workplaces.find((w) => w.id === s.workplaceId)
+                              ?.name
+                          }{" "}
+                          · {new Date(s.start).toLocaleDateString()}
+                        </option>
+                      ))}
+                  </select>
                 </Field>
                 <label className="checkbox">
                   <input
@@ -1870,8 +2075,34 @@ export function Savio() {
                 </Field>
               </>
             )}
+            {editor.kind === "goal" && (
+              <Field
+                label={
+                  he
+                    ? "אחוז מאומדן שכר המשמרת שמיועד לחיסכון"
+                    : "Share of estimated shift income to save (%)"
+                }
+              >
+                <input
+                  name="savingShare"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="1"
+                  defaultValue={editor.value?.savingShare ?? 0}
+                />
+              </Field>
+            )}
             {editor.kind === "contribution" && (
               <>
+                <Field label={he ? "פעולה" : "Action"}>
+                  <select name="contributionKind">
+                    <option value="deposit">{he ? "הפקדה" : "Deposit"}</option>
+                    <option value="withdrawal">
+                      {he ? "משיכה" : "Withdrawal"}
+                    </option>
+                  </select>
+                </Field>
                 <p className="muted">
                   {editor.value.name} ·{" "}
                   {he
@@ -1984,6 +2215,9 @@ export function Savio() {
                 </div>
               </>
             )}
+            {editor.kind === "workplace" && (
+              <PayrollFields workplace={editor.value} he={he} />
+            )}
             {editor.kind === "shift" && (
               <>
                 {editor.value?.legacyGross !== undefined && (
@@ -2012,7 +2246,9 @@ export function Savio() {
                     defaultValue={
                       editor.value
                         ? localDateTime(editor.value.start)
-                        : undefined
+                        : editor.date
+                          ? editor.date + "T09:00"
+                          : undefined
                     }
                     required
                   />
@@ -2030,11 +2266,14 @@ export function Savio() {
                     defaultValue={
                       editor.value?.end
                         ? localDateTime(editor.value.end)
-                        : undefined
+                        : editor.date
+                          ? editor.date + "T17:00"
+                          : undefined
                     }
-                    required
+                    required={!editor.value || Boolean(editor.value.end)}
                   />
                 </Field>
+                <ShiftExtras shift={editor.value} he={he} />
                 <Field label={he ? "דקות הפסקה" : "Break minutes"}>
                   <input
                     name="breakMinutes"

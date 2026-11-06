@@ -11,7 +11,8 @@ import {
   Wallet,
   Gift,
 } from "lucide-react";
-import { monthTransactions, type FinanceData } from "@/lib/finance";
+import { previousMonth } from "@/lib/insights";
+import { recordedMonthTransactions, type FinanceData } from "@/lib/finance";
 import { categoryLabel } from "@/lib/categories";
 import { ProgressRing } from "./progress-ring";
 import { Field, Modal } from "./ui";
@@ -40,7 +41,7 @@ export function BudgetScreen({
       data.budgets[month + ":" + category] ??
       data.budgets["default:" + category] ??
       0,
-    spent: monthTransactions(data.transactions, month)
+    spent: recordedMonthTransactions(data.transactions, month)
       .filter((t) => t.kind === "expense" && t.category === category)
       .reduce((n, t) => n + t.amount, 0),
   }));
@@ -119,6 +120,49 @@ export function BudgetScreen({
           );
         })}
       </div>
+      {budget > 0 && spent > budget && (
+        <p className="notice" role="status">
+          {tr("Over your monthly budget by ", "חריגה מהתקציב החודשי בסך ")}
+          {money(spent - budget)}
+        </p>
+      )}
+      <details className="panel budget-history">
+        <summary>{tr("Budget history", "היסטוריית תקציבים")}</summary>
+        {[
+          ...new Set([
+            month,
+            previousMonth(month),
+            ...Object.keys(data.budgets)
+              .filter((k) => /^\d{4}-\d{2}:/.test(k))
+              .map((k) => k.slice(0, 7)),
+          ]),
+        ]
+          .sort()
+          .reverse()
+          .slice(0, 24)
+          .map((m) => {
+            const limit = categories.reduce(
+                (n, c) =>
+                  n +
+                  (data.budgets[m + ":" + c] ??
+                    data.budgets["default:" + c] ??
+                    0),
+                0,
+              ),
+              used = recordedMonthTransactions(data.transactions, m)
+                .filter((t) => t.kind === "expense")
+                .reduce((n, t) => n + t.amount, 0);
+            return (
+              <div className="flex-between spaced" key={m}>
+                <strong>{m}</strong>
+                <span>
+                  {money(used)} / {money(limit)} · {tr("Remaining", "נותרו")}{" "}
+                  {money(limit - used)}
+                </span>
+              </div>
+            );
+          })}
+      </details>
       <button
         className="primary full"
         onClick={() => {

@@ -212,6 +212,12 @@ test("new install starts in Hebrew with functional welcome and no invented balan
   await page
     .getByRole("button", { name: "בואו נתחיל לחסוך", exact: true })
     .click();
+  await expect(page.locator(".user-guide")).toBeVisible();
+  for (let i = 0; i < 4; i++)
+    await page.getByRole("button", { name: "הבא", exact: true }).click();
+  await page
+    .getByRole("button", { name: "מתחילים להשתמש ב־SAVIO", exact: true })
+    .click();
   await expect(page.locator(".hero-balance")).toContainText("0");
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
   await page.reload();

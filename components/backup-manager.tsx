@@ -1,4 +1,5 @@
 "use client";
+import { mergeBackups } from "@/lib/merge";
 import { useState, useRef } from "react";
 import { Download, Upload, History, ShieldAlert, Check } from "lucide-react";
 import {
@@ -207,6 +208,14 @@ export function BackupManager({
               )}
             </button>
           )}
+          {!recoveryMode && (
+            <p className="small muted">
+              {tr(
+                "Merge keeps current preferences and adds only nonconflicting records. Any different records sharing an ID or conflicting budgets block the entire merge.",
+                "מיזוג משאיר את ההעדפות הנוכחיות ומוסיף רק רשומות ללא סתירות. רשומות שונות עם אותו מזהה או תקציבים סותרים חוסמים את המיזוג כולו.",
+              )}
+            </p>
+          )}
           <label className="checkbox">
             <input
               type="checkbox"
@@ -218,6 +227,41 @@ export function BackupManager({
               "בדקתי את הגיבוי וברצוני להחליף את הנתונים הנוכחיים.",
             )}
           </label>
+          {!recoveryMode && (
+            <button
+              className="secondary full spaced"
+              disabled={!accepted || busy}
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  const merged = mergeBackups(data, preview.data);
+                  if (await onSave(merged)) {
+                    setPreview(null);
+                    setNotice(
+                      tr(
+                        "Backup merged. Existing preferences were kept.",
+                        "הגיבוי מוזג. ההעדפות הקיימות נשמרו.",
+                      ),
+                    );
+                  }
+                } catch {
+                  setNotice(
+                    tr(
+                      "Merge blocked: records or budgets with the same ID differ, or the combined workspace is invalid. No records were changed. Use a separate backup to review differences.",
+                      "המיזוג נחסם: קיימות רשומות או מסגרות תקציב סותרות, או שהנתונים המשולבים אינם תקינים. הנתונים לא שונו. בדקו את ההבדלים באמצעות גיבוי נפרד.",
+                    ),
+                  );
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              {tr(
+                "Merge without replacing existing records",
+                "מיזוג ללא החלפת רשומות קיימות",
+              )}
+            </button>
+          )}
           <button
             className="primary full"
             disabled={!accepted || busy}

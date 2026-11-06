@@ -160,7 +160,7 @@ export function SettingsScreen({
         {row(tr("About SAVIO", "על SAVIO"), "3.0", Info, () =>
           setPane("about"),
         )}
-        {row(tr("Welcome screen", "מסך הפתיחה"), "", ShieldCheck, onWelcome)}
+        {row(tr("User guide", "מדריך שימוש"), "", ShieldCheck, onWelcome)}
       </div>
       <p className="settings-storage-note">
         <ShieldCheck size={15} />
