@@ -11,7 +11,7 @@
 
 ## Optional AI
 
-Add server-only `SAVIO_AI_KEY` and optional `SAVIO_AI_MODEL`. Production AI also requires Upstash-compatible `SAVIO_RATE_LIMIT_URL` and `SAVIO_RATE_LIMIT_TOKEN` for distributed limits. Redeploy after configuration. Without the key or rate-limit service, the application shows AI unavailable and still provides local deterministic insights. Provider/network failures do not modify local records.
+Add server-only `SAVIO_AI_KEY` and optional `SAVIO_AI_MODEL`. Production AI also requires Upstash-compatible `SAVIO_RATE_LIMIT_URL` and `SAVIO_RATE_LIMIT_TOKEN` for distributed limits. Redeploy after configuration. Without the key or rate-limit service, the application shows AI unavailable and still provides a functional deterministic local chat and insights. Provider/network failures do not modify local records.
 
 The application has no authentication. Each browser holds only its own records. To keep the hosted application itself private, use Vercel deployment protection. Rate limiting bounds requests but is not a guarantee against credit abuse; review provider spending limits and protection before enabling a public AI endpoint. Never expose AI/Redis keys through public variables or source files.
 
@@ -21,7 +21,7 @@ In this managed development environment, optional AI requires `api.openai.com` p
 
 - Same-origin V2 browser records migrate automatically. The `savio-local-v1` copy is preserved.
 - For V2 cloud records, export JSON using the old application before replacing its deployment, then restore through V3 Settings. Old Supabase tables and remote accounts are not deleted. V3 does not try to connect to them.
-- V3 accepts its own versioned JSON backups, raw V2 data, old snapshot envelopes and a complete normalized legacy JSON object containing all nine tables. Imports are validated and reviewed; unsupported or malformed input never erases current data. Recurring templates lacking a start date generate an explicit import warning and start in the import month.
+- The current app exports schema-version-4 JSON and accepts both version-3 and version-4 backups, raw V2 data, old snapshot envelopes and a complete normalized legacy JSON object containing all nine tables. Imports are validated and reviewed; unsupported or malformed input never erases current data. Recurring templates lacking a start date generate an explicit import warning and start in the import month.
 - Keep private copies of old and new exports until counts, currencies, goals, reminders and totals match. IDB recovery copies alone are not sufficient external backups.
 
 ## Before daily use
@@ -33,3 +33,5 @@ Payroll remains a configurable gross estimate, not legal/tax advice or a complet
 ## Deployment status
 
 A build or CI pass is not a hosted deployment. This workspace had no Vercel CLI, Vercel credential binding or deployment connector available when inspected. A real Vercel deployment, production-domain verification and physical iPhone Safari testing remain external verification steps unless subsequently completed and recorded in `VERIFICATION.md`.
+
+For this upgrade, export a private JSON backup on the existing `https://savio-offline.vercel.app` origin before refreshing. Keep the same origin so existing IndexedDB records remain accessible. Review `COMPLETE-UPGRADE.md` for new recurring-entry semantics and payroll conventions. Never restore a V4 backup into an old client or downgrade the app against new records.

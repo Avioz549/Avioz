@@ -1,4 +1,6 @@
-# Production upgrade — incremental delivery
+# Production upgrade — first-phase history
+
+This document records the earlier theme-only delivery. The subsequent complete package is implemented and documented in [COMPLETE-UPGRADE.md](COMPLETE-UPGRADE.md); use that document and current VERIFICATION.md for release status.
 
 ## Phase 0: repository audit
 

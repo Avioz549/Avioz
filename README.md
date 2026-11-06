@@ -2,6 +2,8 @@
 
 הכסף שלך. העתיד שלך.
 
+The complete upgrade package adds configurable weekly/night/holiday payroll, scheduled shifts and forecasts, a shift calendar, withdrawals, custom categories, reports, five-step guidance, local chat and reviewed backup merging. See [release details and data safety](docs/COMPLETE-UPGRADE.md).
+
 See [the approved eight-screen design implementation](docs/APPROVED-DESIGN.md) and [the actual screen captures](docs/screenshots/approved/README.md).
 
 A single-person, local-first Next.js finance application. No registration, login, Supabase project or database configuration is required. Home, Transactions, Work, Savings and More form the five safe-area-aware mobile tabs; desktop uses a sidebar. New installations start in Hebrew RTL with a welcome flow; English LTR, existing language preferences, light/dark modes and iPhone installation are supported.
