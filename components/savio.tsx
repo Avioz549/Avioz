@@ -12,9 +12,11 @@ import { PayrollFields, ShiftExtras } from "./payroll-fields";
 import { ConfirmRecurring } from "./confirm-recurring";
 import { AppUpdate } from "./app-update";
 import { UserGuide } from "./user-guide";
+import { useAppClock } from "@/lib/use-app-clock";
+import { overlappingCompletedShifts } from "@/lib/shift-overlap";
 import { resolveTheme } from "@/lib/themes";
 import Link from "next/link";
-import { Fragment, useEffect, useState, useRef } from "react";
+import { Fragment, useEffect, useState, useRef, useCallback } from "react";
 import {
   LayoutDashboard,
   ArrowLeftRight,
@@ -135,7 +137,6 @@ export function Savio() {
     [filter, setFilter] = useState("all"),
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false),
-    [now, setNow] = useState(new Date()),
     [consent, setConsent] = useState(false),
     [aiAvailable, setAiAvailable] = useState(false),
     [chat, setChat] = useState<{ role: string; text: string }[]>([]),
@@ -144,6 +145,21 @@ export function Savio() {
       "balanced",
     ),
     [backupDue, setBackupDue] = useState(false);
+  const calendarChanged = useCallback(
+    (previousDay: string, nextDay: string) => {
+      const previousMonth = previousDay.slice(0, 7),
+        nextMonth = nextDay.slice(0, 7);
+      if (previousMonth !== nextMonth)
+        setMonth((selected) =>
+          selected === previousMonth ? nextMonth : selected,
+        );
+    },
+    [],
+  );
+  const { now, refreshClock } = useAppClock(
+    data.shifts.some((s) => !s.end && (!s.pauseStartedAt || s.paidBreak)),
+    calendarChanged,
+  );
   useReminders(
     data.transactions,
     data.reminders,
@@ -201,6 +217,7 @@ export function Savio() {
           "more",
           "challenges",
           "welcome",
+          "guide",
         ].includes(initialTab)
       )
         updateTab(initialTab as Tab);
@@ -249,19 +266,6 @@ export function Savio() {
       active = false;
     };
   }, []);
-  useEffect(() => {
-    if (!data.shifts.some((s) => !s.end && (!s.pauseStartedAt || s.paidBreak)))
-      return;
-    const refresh = () => setNow(new Date());
-    const timer = setInterval(refresh, 1000);
-    window.addEventListener("focus", refresh);
-    document.addEventListener("visibilitychange", refresh);
-    return () => {
-      clearInterval(timer);
-      window.removeEventListener("focus", refresh);
-      document.removeEventListener("visibilitychange", refresh);
-    };
-  }, [data.shifts]);
   useEffect(() => {
     document.documentElement.lang = data.profile.language;
     document.documentElement.dir = he ? "rtl" : "ltr";
@@ -366,32 +370,47 @@ export function Savio() {
       ],
     });
   }
+  function confirmOverlap(candidate: Shift) {
+    const overlapping = overlappingCompletedShifts(candidate, data.shifts);
+    if (!overlapping.length) return true;
+    const dates = overlapping
+      .map(
+        (s) =>
+          `${new Date(s.start).toLocaleString(he ? "he-IL" : "en-US")} – ${new Date(s.end!).toLocaleString(he ? "he-IL" : "en-US")}`,
+      )
+      .join("\n");
+    return window.confirm(
+      he
+        ? `אזהרה: המשמרת חופפת ל־${overlapping.length} משמרות שהסתיימו באותו מקום עבודה. השמירה עלולה לספור שעות ושכר פעמיים.\n${dates}\nלאשר חריגה ולשמור בכל זאת?`
+        : `Warning: this shift overlaps ${overlapping.length} completed shift(s) at the same workplace. Saving may count hours and pay twice.\n${dates}\nConfirm this exception and save anyway?`,
+    );
+  }
   async function stopShift() {
-    if (!activeShift) return;
+    if (!activeShift || saving.current) return;
+    const timestamp = new Date().toISOString();
+    const completed: Shift = {
+      ...activeShift,
+      end: timestamp,
+      breakMinutes:
+        activeShift.breakMinutes +
+        (activeShift.pauseStartedAt
+          ? Math.max(
+              0,
+              (Date.parse(timestamp) - Date.parse(activeShift.pauseStartedAt)) /
+                60000,
+            )
+          : 0),
+      pauseStartedAt: undefined,
+    };
+    if (!confirmOverlap(completed)) return;
     await commit({
       ...data,
-      shifts: data.shifts.map((s) =>
-        s.id === activeShift.id
-          ? {
-              ...s,
-              end: new Date().toISOString(),
-              breakMinutes:
-                s.breakMinutes +
-                (s.pauseStartedAt
-                  ? Math.max(
-                      0,
-                      (Date.now() - Date.parse(s.pauseStartedAt)) / 60000,
-                    )
-                  : 0),
-              pauseStartedAt: undefined,
-            }
-          : s,
-      ),
+      shifts: data.shifts.map((s) => (s.id === completed.id ? completed : s)),
     });
   }
   async function togglePause() {
     if (!activeShift) return;
-    setNow(new Date());
+    refreshClock();
     await commit({
       ...data,
       shifts: data.shifts.map((s) =>
@@ -414,7 +433,7 @@ export function Savio() {
   }
   async function submitEditor(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!editor) return;
+    if (!editor || saving.current) return;
     const f = new FormData(e.currentTarget),
       v = (key: string) => String(f.get(key) || ""),
       n = (key: string) => Number(f.get(key)),
@@ -423,6 +442,7 @@ export function Savio() {
     try {
       if (editor.kind === "transaction") {
         const value = transactionSchema.parse({
+          ...editor.value,
           id: editor.value?.id || id(),
           title: v("title"),
           amount: n("amount"),
@@ -438,7 +458,21 @@ export function Savio() {
           : [...data.transactions, value];
       }
       if (editor.kind === "workplace") {
+        if (
+          !checked("enablePolicy") &&
+          editor.value?.policy &&
+          Object.keys(editor.value.policy).some(
+            (key) =>
+              !Object.hasOwn(workplaceSchema.shape.policy.unwrap().shape, key),
+          )
+        )
+          throw new Error(
+            he
+              ? "לא ניתן להסיר הגדרות שכר עם שדות לא מוכרים. הנתונים לא שונו."
+              : "Cannot remove payroll settings containing unknown fields. No records were changed.",
+          );
         const value = workplaceSchema.parse({
+          ...editor.value,
           id: editor.value?.id || id(),
           name: v("name"),
           wage: n("wage"),
@@ -449,6 +483,7 @@ export function Savio() {
           premiumRate: n("premiumRate"),
           policy: checked("enablePolicy")
             ? {
+                ...editor.value?.policy,
                 weeklyHours: n("weeklyHours"),
                 weeklyRate: n("weeklyRate"),
                 weekStart: n("weekStart"),
@@ -478,6 +513,7 @@ export function Savio() {
               : "Mark future shifts as scheduled.",
           );
         const value = shiftSchema.parse({
+          ...editor.value,
           id: editor.value?.id || id(),
           workplaceId: v("workplaceId"),
           start: new Date(v("start")).toISOString(),
@@ -491,13 +527,16 @@ export function Savio() {
           holiday: checked("holiday"),
           scheduled: checked("scheduled"),
           pauseStartedAt: !v("end") ? editor.value?.pauseStartedAt : undefined,
+          legacyGross: undefined,
         });
+        if (!confirmOverlap(value)) return;
         next.shifts = editor.value
           ? data.shifts.map((x) => (x.id === value.id ? value : x))
           : [...data.shifts, value];
       }
       if (editor.kind === "goal") {
         const value = goalSchema.parse({
+          ...editor.value,
           id: editor.value?.id || id(),
           name: v("name"),
           target: n("target"),
@@ -639,8 +678,10 @@ export function Savio() {
     { key: "more", icon: Menu },
   ] as const;
   async function recordOccurrence(source: Transaction) {
+    const sourceRecord = { ...source };
+    delete sourceRecord.projected;
     const record = transactionSchema.parse({
-      ...source,
+      ...sourceRecord,
       id: id(),
       recurring: false,
       recurrenceId: source.id,

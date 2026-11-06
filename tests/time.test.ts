@@ -22,3 +22,31 @@ test("payroll month uses the displayed local date near a UTC boundary", async ()
     `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`,
   );
 });
+
+test("idle clock targets the next local midnight without second-by-second rendering", async () => {
+  const { nextClockDelay } = await import("../lib/time");
+  assert.equal(
+    nextClockDelay(new Date(2026, 10, 30, 23, 59, 59, 500), false),
+    501,
+  );
+  assert.equal(nextClockDelay(new Date(2026, 10, 1, 12), false), 60000);
+  assert.equal(nextClockDelay(new Date(2026, 10, 1, 12), true), 1000);
+});
+test("clock snapshots retain the old civil day and timezone when device timezone changes", async () => {
+  const { clockSnapshot } = await import("../lib/time");
+  const original = process.env.TZ;
+  try {
+    process.env.TZ = "UTC";
+    const date = new Date("2026-11-30T23:30:00Z"),
+      before = clockSnapshot(date);
+    process.env.TZ = "Asia/Jerusalem";
+    const after = clockSnapshot(date);
+    assert.equal(before.day, "2026-11-30");
+    assert.equal(after.day, "2026-12-01");
+    assert.notEqual(before.zone, after.zone);
+    assert.notEqual(before.offset, after.offset);
+  } finally {
+    if (original === undefined) delete process.env.TZ;
+    else process.env.TZ = original;
+  }
+});

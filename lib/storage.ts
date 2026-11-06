@@ -100,6 +100,7 @@ export async function saveWorkspace(
           return;
         }
         next = {
+          ...current,
           id: "main",
           data: parsed,
           revision: (current?.revision ?? 0) + 1,

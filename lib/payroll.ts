@@ -1,8 +1,13 @@
 import type { FinanceData, Shift, Workplace } from "./finance";
 // Device-local civil dates are deliberate: UTC timestamps preserve instants,
 // calendar/payroll boundaries follow the local timezone displayed by the app.
-export const roundMoney = (n: number) =>
-  Math.round((n + Number.EPSILON) * 100) / 100;
+import {
+  roundMoney,
+  sumMoney,
+  allocateMinorUnits,
+  toMinorUnits,
+} from "./money";
+export { roundMoney } from "./money";
 export function dateKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
@@ -19,6 +24,7 @@ export type PaySegment = {
   week: string;
   hours: number;
   gross: number;
+  unroundedGross: number;
   scheduled: boolean;
 };
 export type PayResult = {
@@ -157,6 +163,7 @@ export function calculatePayroll(
         week,
         hours: partHours,
         gross,
+        unroundedGross: gross,
         scheduled: Boolean(s.scheduled),
       });
       result.hours += partHours;
@@ -169,8 +176,17 @@ export function calculatePayroll(
       shiftHours += partHours;
       cursor = stop;
     }
-    segments.push(...localSegments);
+    // Keep the full-shift amount identical to the previous calculation, then
+    // distribute its cents instead of independently rounding month/day totals.
     result.gross = roundMoney(result.gross);
+    const allocated = allocateMinorUnits(
+      result.gross,
+      localSegments.map((part) => part.gross),
+    );
+    localSegments.forEach((part, index) => {
+      part.gross = allocated[index];
+    });
+    segments.push(...localSegments);
     result.wages = roundMoney(result.wages);
   }
   return { byShift, segments };
@@ -226,7 +242,9 @@ export function monthlyPayroll(
       (s) => s.scheduled && remaining.some((shift) => shift.id === s.shiftId),
     );
   const sum = (items: PaySegment[], key: "gross" | "hours") =>
-    items.reduce((n, s) => n + s[key], 0);
+    key === "gross"
+      ? sumMoney(items.map((s) => s.gross))
+      : items.reduce((n, s) => n + s.hours, 0);
   const gross = roundMoney(sum(earned, "gross")),
     scheduled = roundMoney(sum(planned, "gross"));
   return {
@@ -234,7 +252,11 @@ export function monthlyPayroll(
     gross,
     hours: sum(earned, "hours"),
     scheduled,
-    forecast: roundMoney(gross + scheduled),
+    forecast: sumMoney([gross, scheduled]),
+    roundingAdjustmentMinor:
+      toMinorUnits(gross) -
+      toMinorUnits(earned.reduce((n, s) => n + s.unroundedGross, 0)),
+    monthlyPlanned: planned,
     scheduledHours: sum(planned, "hours"),
     hasSchedule: planned.length > 0,
   };

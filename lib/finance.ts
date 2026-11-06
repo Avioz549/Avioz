@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { calculateShift } from "./payroll";
-export const transactionSchema = z.object({
+export const transactionSchema = z.looseObject({
   id: z.uuid(),
   title: z.string().trim().min(1).max(120),
   amount: z.number().positive().max(1e9),
@@ -14,7 +14,7 @@ export const transactionSchema = z.object({
 export type Transaction = z.infer<typeof transactionSchema> & {
   projected?: boolean;
 };
-export const workplaceSchema = z.object({
+export const workplaceSchema = z.looseObject({
   id: z.uuid(),
   name: z.string().trim().min(1).max(100),
   wage: z.number().min(0).max(100000),
@@ -24,7 +24,7 @@ export const workplaceSchema = z.object({
   extraRate: z.number().min(1).max(5),
   premiumRate: z.number().min(1).max(5),
   policy: z
-    .object({
+    .looseObject({
       weeklyHours: z.number().min(1).max(168),
       weeklyRate: z.number().min(1).max(5),
       weekStart: z.number().int().min(0).max(6),
@@ -40,7 +40,7 @@ export const workplaceSchema = z.object({
 });
 export type Workplace = z.infer<typeof workplaceSchema>;
 export const shiftSchema = z
-  .object({
+  .looseObject({
     id: z.uuid(),
     workplaceId: z.uuid(),
     start: z.iso.datetime({ offset: true }),
@@ -77,7 +77,7 @@ export const shiftSchema = z
     "Invalid pause timestamp",
   );
 export type Shift = z.infer<typeof shiftSchema>;
-export const goalSchema = z.object({
+export const goalSchema = z.looseObject({
   id: z.uuid(),
   name: z.string().trim().min(1).max(100),
   target: z.number().positive().max(1e9),
@@ -87,7 +87,7 @@ export const goalSchema = z.object({
   savingShare: z.number().min(0).max(100).optional(),
   contributions: z
     .array(
-      z.object({
+      z.looseObject({
         id: z.uuid(),
         amount: z.number().positive().max(1e9),
         date: z.iso.date(),
@@ -98,7 +98,7 @@ export const goalSchema = z.object({
 });
 export type Goal = z.infer<typeof goalSchema>;
 export const dataSchema = z
-  .object({
+  .looseObject({
     transactions: z.array(transactionSchema).max(10000),
     workplaces: z.array(workplaceSchema).max(100),
     shifts: z.array(shiftSchema).max(10000),
@@ -110,7 +110,7 @@ export const dataSchema = z
       .optional(),
     reminders: z
       .array(
-        z.object({
+        z.looseObject({
           id: z.uuid(),
           title: z.string().trim().min(1).max(120),
           date: z.iso.date(),
@@ -119,7 +119,7 @@ export const dataSchema = z
       )
       .max(1000)
       .default([]),
-    profile: z.object({
+    profile: z.looseObject({
       name: z.string().max(100),
       currency: z.enum(["ILS", "USD", "EUR", "GBP"]),
       language: z.enum(["en", "he"]),

@@ -5,6 +5,7 @@ import {
   type FinanceData,
   type Goal,
 } from "./finance";
+import { sumMoney } from "./money";
 import { monthlyPayroll } from "./payroll";
 import { categoryLabel } from "./categories";
 export function previousMonth(month: string) {
@@ -25,8 +26,7 @@ export function goalShifts(
     byShift ??
     monthlyPayroll({ ...data, shifts: complete }, "1900-01", now).byShift;
   const average = complete.length
-    ? complete.reduce((n, s) => n + (ledger[s.id]?.gross ?? 0), 0) /
-      complete.length
+    ? sumMoney(complete.map((s) => ledger[s.id]?.gross ?? 0)) / complete.length
     : 0;
   const share = (goal.savingShare ?? 0) / 100;
   return average > 0 && share > 0
@@ -85,12 +85,16 @@ export function localInsights(
         ),
       );
     for (const w of data.workplaces) {
-      const gross = work.segments
-        .filter(
-          (s) =>
-            !s.scheduled && s.workplaceId === w.id && s.date.startsWith(month),
-        )
-        .reduce((n, s) => n + s.gross, 0);
+      const gross = sumMoney(
+        work.segments
+          .filter(
+            (s) =>
+              !s.scheduled &&
+              s.workplaceId === w.id &&
+              s.date.startsWith(month),
+          )
+          .map((s) => s.gross),
+      );
       if (gross > 0)
         items.push(
           `${w.name}: ${money(gross)} ${tr("estimated gross", "ברוטו משוער")}`,
@@ -151,7 +155,7 @@ export function localAnswer(
       (s) => s.end && !s.scheduled && Date.parse(s.end) <= now.getTime(),
     );
     const avg = completed.length
-      ? completed.reduce((n, s) => n + (work.byShift[s.id]?.gross ?? 0), 0) /
+      ? sumMoney(completed.map((s) => work.byShift[s.id]?.gross ?? 0)) /
         completed.length
       : 0;
     return (

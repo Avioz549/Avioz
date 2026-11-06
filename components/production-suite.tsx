@@ -1,4 +1,6 @@
 "use client";
+import { sumMoney } from "@/lib/money";
+import { PayrollRoundingNotice } from "./payroll-rounding-notice";
 import { useState } from "react";
 import {
   ChevronLeft,
@@ -103,6 +105,10 @@ export function SalaryOverview({
           </span>
         </div>
       )}
+      <PayrollRoundingNotice
+        he={he}
+        adjustmentMinor={report.roundingAdjustmentMinor}
+      />
       <div className="suite-stats">
         <div>
           <span>{tr("Gross estimate to date", "אומדן ברוטו עד כה")}</span>
@@ -221,7 +227,7 @@ export function ShiftCalendar({
         first: dates[0],
         last: dates.at(-1),
         hours: parts.reduce((n, s) => n + s.hours, 0),
-        gross: parts.reduce((n, s) => n + s.gross, 0),
+        gross: sumMoney(parts.map((s) => s.gross)),
       };
     },
   );
@@ -296,7 +302,7 @@ export function ShiftCalendar({
             >
               <b>{i + 1}</b>
               {parts.length > 0 && (
-                <small>{money(parts.reduce((n, s) => n + s.gross, 0))}</small>
+                <small>{money(sumMoney(parts.map((s) => s.gross)))}</small>
               )}
               {parts.some((s) => s.scheduled) && <i>{tr("Plan", "תכנון")}</i>}
               {holiday && <i>{tr("Holiday", "חג")}</i>}
@@ -338,9 +344,11 @@ export function ShiftCalendar({
             </span>
             <strong>
               {money(
-                report.segments
-                  .filter((p) => p.shiftId === s.id && p.date === day)
-                  .reduce((n, s) => n + s.gross, 0),
+                sumMoney(
+                  report.segments
+                    .filter((p) => p.shiftId === s.id && p.date === day)
+                    .map((p) => p.gross),
+                ),
               )}
             </strong>
           </button>
@@ -475,8 +483,12 @@ export function ReportsScreen({
       return [
         w.name,
         rows.filter((s) => !s.scheduled).reduce((n, s) => n + s.hours, 0),
-        rows.filter((s) => !s.scheduled).reduce((n, s) => n + s.gross, 0),
-        rows.filter((s) => s.scheduled).reduce((n, s) => n + s.gross, 0),
+        sumMoney(rows.filter((s) => !s.scheduled).map((s) => s.gross)),
+        sumMoney(
+          report.monthlyPlanned
+            .filter((s) => s.workplaceId === w.id)
+            .map((s) => s.gross),
+        ),
       ];
     }),
   ];
@@ -558,6 +570,10 @@ export function ReportsScreen({
           "השכר הוא אומדן ברוטו לפני ניכויים. החיסכון מתועד ואינו יתרת בנק מאומתת. ייצוא CSV תומך בעברית. שמירת PDF דרך חלון ההדפסה של הדפדפן.",
         )}
       </p>
+      <PayrollRoundingNotice
+        he={he}
+        adjustmentMinor={report.roundingAdjustmentMinor}
+      />
       <p>
         {tr("Received income", "הכנסות שהתקבלו")}: {total.income.toFixed(2)} ·{" "}
         {tr("Expenses", "הוצאות")}: {total.expenses.toFixed(2)} ·{" "}

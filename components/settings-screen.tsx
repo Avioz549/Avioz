@@ -181,8 +181,7 @@ export function SettingsScreen({
               ),
             )
           ) {
-            const next = emptyData();
-            next.profile = data.profile;
+            const next = { ...data, ...emptyData(), profile: data.profile };
             await onSave(next);
           }
         }}
@@ -261,6 +260,7 @@ export function SettingsScreen({
                   await onSave({
                     ...data,
                     profile: {
+                      ...data.profile,
                       name: String(f.get("name")),
                       currency: f.get("currency") as "ILS",
                       language: f.get("language") as "en",

@@ -31,6 +31,7 @@ export function FinancialCalendar({
     e.preventDefault();
     const form = new FormData(e.currentTarget);
     const r: Reminder = {
+      ...editing,
       id: editing?.id || crypto.randomUUID(),
       title: String(form.get("title")),
       date: String(form.get("date")),

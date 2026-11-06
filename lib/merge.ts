@@ -1,4 +1,35 @@
 import { dataSchema, type FinanceData } from "./finance";
+const canonical = (v: unknown): string =>
+  JSON.stringify(v, function (k, value) {
+    return value && typeof value === "object" && !Array.isArray(value)
+      ? Object.fromEntries(
+          Object.entries(value).sort(([a], [b]) => a.localeCompare(b)),
+        )
+      : value;
+  });
+
+function mergeOpaqueFields(
+  current: Record<string, unknown>,
+  incoming: Record<string, unknown>,
+  known: object,
+) {
+  const extra: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(incoming)) {
+    if (Object.hasOwn(known, key)) continue;
+    if (
+      Object.hasOwn(current, key) &&
+      canonical(current[key]) !== canonical(value)
+    )
+      throw new Error("Conflicting unknown field: " + key);
+    Object.defineProperty(extra, key, {
+      value,
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    });
+  }
+  return extra;
+}
 // Same ID + different content is a conflict, never a silent overwrite.
 function mergeRows<T extends { id: string }>(
   current: T[],
@@ -6,14 +37,6 @@ function mergeRows<T extends { id: string }>(
   scope: string,
 ): T[] {
   const all = new Map(current.map((r) => [r.id, r]));
-  const canonical = (v: unknown): string =>
-    JSON.stringify(v, function (k, value) {
-      return value && typeof value === "object" && !Array.isArray(value)
-        ? Object.fromEntries(
-            Object.entries(value).sort(([a], [b]) => a.localeCompare(b)),
-          )
-        : value;
-    });
   for (const row of incoming) {
     const old = all.get(row.id);
     if (old && canonical(old) !== canonical(row))
@@ -34,6 +57,15 @@ export function mergeBackups(
   }
   return dataSchema.parse({
     ...current,
+    ...mergeOpaqueFields(current, incoming, dataSchema.shape),
+    profile: {
+      ...current.profile,
+      ...mergeOpaqueFields(
+        current.profile,
+        incoming.profile,
+        dataSchema.shape.profile.shape,
+      ),
+    },
     transactions: mergeRows(
       current.transactions,
       incoming.transactions,
