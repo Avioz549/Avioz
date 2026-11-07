@@ -24,6 +24,11 @@ export type PaySegment = {
   week: string;
   hours: number;
   gross: number;
+  regularHours: number;
+  overtimeHours: number;
+  basePay: number;
+  overtimePay: number;
+  premiumPay: number;
   unroundedGross: number;
   scheduled: boolean;
 };
@@ -33,6 +38,11 @@ export type PayResult = {
   wages: number;
   tips: number;
   travel: number;
+  regularHours: number;
+  overtimeHours: number;
+  basePay: number;
+  overtimePay: number;
+  premiumPay: number;
 };
 const zero = (): PayResult => ({
   hours: 0,
@@ -40,6 +50,11 @@ const zero = (): PayResult => ({
   wages: 0,
   tips: 0,
   travel: 0,
+  regularHours: 0,
+  overtimeHours: 0,
+  basePay: 0,
+  overtimePay: 0,
+  premiumPay: 0,
 });
 export function calculatePayroll(
   shifts: Shift[],
@@ -110,7 +125,11 @@ export function calculatePayroll(
       ]
         .filter((h) => h >= 0 && h <= partHours)
         .sort((a, b) => a - b);
-      let wages = 0;
+      let wages = 0,
+        regularHours = 0,
+        overtimeHours = 0,
+        overtimePay = 0,
+        premiumPay = 0;
       for (let i = 1; i < cuts.length; i++) {
         const a = cuts[i - 1],
           b = cuts[i];
@@ -147,6 +166,10 @@ export function calculatePayroll(
               ? overtime + premium - 1
               : overtime * premium;
         wages += (b - a) * w.wage * multiplier;
+        if (overtime > 1) overtimeHours += b - a;
+        else regularHours += b - a;
+        overtimePay += (b - a) * w.wage * (overtime - 1);
+        premiumPay += (b - a) * w.wage * (multiplier - overtime);
       }
       const share =
         hours > 0 ? partHours / hours : (stop - cursor) / (end - start);
@@ -163,11 +186,20 @@ export function calculatePayroll(
         week,
         hours: partHours,
         gross,
+        regularHours,
+        overtimeHours,
+        basePay: wages - overtimePay - premiumPay,
+        overtimePay,
+        premiumPay,
         unroundedGross: gross,
         scheduled: Boolean(s.scheduled),
       });
       result.hours += partHours;
       result.wages += wages;
+      result.regularHours += regularHours;
+      result.overtimeHours += overtimeHours;
+      result.overtimePay += overtimePay;
+      result.premiumPay += premiumPay;
       result.tips += tips;
       result.travel += travel;
       result.gross += gross;
@@ -187,6 +219,21 @@ export function calculatePayroll(
       part.gross = allocated[index];
     });
     segments.push(...localSegments);
+    const components = allocateMinorUnits(roundMoney(result.wages), [
+      result.wages - result.overtimePay - result.premiumPay,
+      result.overtimePay,
+      result.premiumPay,
+    ]);
+    [result.basePay, result.overtimePay, result.premiumPay] = components;
+    for (const component of ["basePay", "overtimePay", "premiumPay"] as const) {
+      const amounts = allocateMinorUnits(
+        result[component],
+        localSegments.map((p) => p[component]),
+      );
+      localSegments.forEach((p, i) => {
+        p[component] = amounts[i];
+      });
+    }
     result.wages = roundMoney(result.wages);
   }
   return { byShift, segments };
@@ -216,11 +263,13 @@ export function monthlyPayroll(
   const expired = data.shifts.filter(
     (s) => s.scheduled && s.end && Date.parse(s.end) <= now.getTime(),
   );
-  const projected = calculatePayroll(
-    [...data.shifts.filter((s) => !s.scheduled), ...remaining],
-    data.workplaces,
-    now,
-  );
+  const projected = remaining.length
+    ? calculatePayroll(
+        [...data.shifts.filter((s) => !s.scheduled), ...remaining],
+        data.workplaces,
+        now,
+      )
+    : actual;
   const archived = calculatePayroll(expired, data.workplaces, now);
   const ledger = {
     byShift: {

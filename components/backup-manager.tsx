@@ -1,4 +1,5 @@
 "use client";
+import { lifeOf } from "@/lib/life";
 import { mergeBackups } from "@/lib/merge";
 import { useState, useRef } from "react";
 import { Download, Upload, History, ShieldAlert, Check } from "lucide-react";
@@ -6,6 +7,7 @@ import {
   backupDocument,
   parseBackup,
   recoveryHistory,
+  migrationSource,
   type Recovery,
 } from "@/lib/storage";
 import type { FinanceData } from "@/lib/finance";
@@ -46,7 +48,7 @@ export function BackupManager({
     [busy, setBusy] = useState(false),
     [lastExport, setLastExport] = useState("");
   const counts = (d: FinanceData) =>
-    `${d.transactions.length} ${tr("transactions", "תנועות")} · ${d.shifts.length} ${tr("shifts", "משמרות")} · ${d.goals.length} ${tr("goals", "יעדים")} · ${d.reminders.length} ${tr("reminders", "תזכורות")}`;
+    `${d.transactions.length} ${tr("transactions", "תנועות")} · ${d.shifts.length} ${tr("shifts", "משמרות")} · ${d.goals.length} ${tr("goals", "יעדים")} · ${d.reminders.length} ${tr("reminders", "תזכורות")} · ${lifeOf(d).tasks.length} ${tr("tasks", "משימות")} · ${lifeOf(d).events.length} ${tr("events", "אירועים")} · ${lifeOf(d).personalGoals.length} ${tr("personal goals", "יעדים אישיים")} · ${lifeOf(d).subscriptions.length} ${tr("subscriptions", "מנויים")} · ${lifeOf(d).payslips.length} ${tr("payslips", "תלושים")}`;
   return (
     <article className="panel backup-panel">
       <div className="panel-heading">
@@ -101,6 +103,47 @@ export function BackupManager({
         >
           <History size={18} />
           {tr("Recovery history", "היסטוריית שחזור")}
+        </button>
+        <button
+          className="secondary"
+          onClick={async () => {
+            try {
+              const source = (await migrationSource()) as {
+                source: unknown;
+              } | null;
+              if (!source) {
+                setNotice(
+                  tr(
+                    "No previous-version migration source exists on this installation.",
+                    "אין מקור מיגרציה מגרסה קודמת בהתקנה זו.",
+                  ),
+                );
+                return;
+              }
+              const url = URL.createObjectURL(
+                  new Blob([JSON.stringify(source.source, null, 2)], {
+                    type: "application/json",
+                  }),
+                ),
+                a = document.createElement("a");
+              a.href = url;
+              a.download = "SAVIO-preserved-pre-v4-source.json";
+              a.click();
+              setTimeout(() => URL.revokeObjectURL(url), 1000);
+            } catch {
+              setNotice(
+                tr(
+                  "Could not export preserved source. Existing records were not changed.",
+                  "לא ניתן לייצא את המקור השמור. הרשומות הקיימות לא השתנו.",
+                ),
+              );
+            }
+          }}
+        >
+          {tr(
+            "Export preserved migration source",
+            "ייצוא המקור השמור מלפני העדכון",
+          )}
         </button>
       </div>
       <input

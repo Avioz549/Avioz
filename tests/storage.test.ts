@@ -120,7 +120,7 @@ test("validation failure leaves current data and recovery history unchanged", as
   assert.equal((await recoveryHistory()).length, 0);
 });
 
-test("unknown fields at every record level survive loading, saves, recovery and V3/V4 backups without a DB upgrade", async () => {
+test("unknown fields at every record level survive loading, saves, recovery and V3/V4 backups with source stores preserved through a safe DB upgrade", async () => {
   const data = emptyData();
   data.futureWorkspace = { nested: ["keep", 7] };
   data.profile.futureProfile = { keep: true };
@@ -238,20 +238,26 @@ test("unknown fields at every record level survive loading, saves, recovery and 
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
-  assert.equal(db.version, 1);
-  assert.deepEqual(Array.from(db.objectStoreNames), ["history", "workspace"]);
+  assert.equal(db.version, 2);
+  assert.deepEqual(Array.from(db.objectStoreNames), [
+    "history",
+    "history-v4",
+    "migrations",
+    "workspace",
+    "workspace-v4",
+  ]);
   db.close();
 });
 test("save preserves unknown snapshot envelope metadata as well as validated data", async () => {
   const { snapshot } = await loadWorkspace();
   const db = await new Promise<IDBDatabase>((resolve, reject) => {
-    const req = indexedDB.open("savio-local-v3", 1);
+    const req = indexedDB.open("savio-local-v3", 2);
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
   await new Promise<void>((resolve, reject) => {
-    const tx = db.transaction("workspace", "readwrite");
-    tx.objectStore("workspace").put({
+    const tx = db.transaction("workspace-v4", "readwrite");
+    tx.objectStore("workspace-v4").put({
       ...snapshot,
       futureEnvelope: { keep: true },
     });

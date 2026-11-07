@@ -157,7 +157,7 @@ export function SettingsScreen({
         {row(tr("Install on iPhone", "הוספה למסך הבית"), "", Smartphone, () =>
           setPane("install"),
         )}
-        {row(tr("About SAVIO", "על SAVIO"), "3.0", Info, () =>
+        {row(tr("About SAVIO", "על SAVIO"), "4.0", Info, () =>
           setPane("about"),
         )}
         {row(tr("User guide", "מדריך שימוש"), "", ShieldCheck, onWelcome)}
@@ -181,7 +181,25 @@ export function SettingsScreen({
               ),
             )
           ) {
-            const next = { ...data, ...emptyData(), profile: data.profile };
+            const next = {
+              ...data,
+              ...emptyData(),
+              profile: data.profile,
+              ...(data.life
+                ? {
+                    life: {
+                      ...data.life,
+                      subscriptions: [],
+                      payslips: [],
+                      workTargets: {},
+                      tasks: data.life.tasks.map((t) => ({
+                        ...t,
+                        savingsGoalId: null,
+                      })),
+                    },
+                  }
+                : {}),
+            };
             await onSave(next);
           }
         }}
@@ -325,8 +343,8 @@ export function SettingsScreen({
               <p>הכסף שלך. העתיד שלך.</p>
               <p className="muted">
                 {tr(
-                  "Version 3.0 · personal, local-first financial planning. No login, bank connection or verified bank balances.",
-                  "גרסה 3.0 · תכנון פיננסי אישי ומקומי. ללא התחברות, חיבור לבנק או יתרות בנק מאומתות.",
+                  "Version 4.0 · personal, local-first financial planning. No login, bank connection or verified bank balances.",
+                  "גרסה 4.0 · תכנון פיננסי אישי ומקומי. ללא התחברות, חיבור לבנק או יתרות בנק מאומתות.",
                 )}
               </p>
             </div>

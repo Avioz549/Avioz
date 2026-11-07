@@ -47,8 +47,8 @@ export function UserGuide({
         icon: Target,
         title: tr("Create savings goals", "הופכים חלומות ליעדים"),
         body: tr(
-          "Choose a target, date and saving share. Record contributions and withdrawals. Shift projections use actual completed shifts and your selected saving percentage. No money is transferred.",
-          "בחרו יעד, תאריך ואחוז חיסכון. תעדו הפקדות ומשיכות. תחזיות לפי משמרות מבוססות על עבודה שתועדה ועל האחוז שבחרתם. האפליקציה אינה מעבירה כסף.",
+          "Choose a target, date and saving share. Record contributions and withdrawals. Shift projections use actual completed shifts and your selected saving percentage. No money is transferred. Goals also supports habits, milestones and personal targets. Planner connects your tasks, events and work schedule; Smart Day highlights priorities.",
+          "בחרו יעד, תאריך ואחוז חיסכון. תעדו הפקדות ומשיכות. תחזיות לפי משמרות מבוססות על עבודה שתועדה ועל האחוז שבחרתם. האפליקציה אינה מעבירה כסף. ביעדים אפשר גם לעקוב אחרי הרגלים ואבני דרך. בתכנון תמצאו משימות, אירועים ומשמרות; היום החכם מציג סדרי עדיפויות.",
         ),
       },
       {

@@ -61,7 +61,7 @@ test("real records persist and drive the balance, search, editing, analytics and
   await expect(page.locator(".hero-balance")).toContainText("10,000");
   await transaction(page, "Groceries", "250");
   await expect(page.locator(".hero-balance")).toContainText("9,750");
-  await page.getByRole("button", { name: "Transactions", exact: true }).click();
+  await page.getByRole("button", { name: "Money", exact: true }).click();
   await page.getByPlaceholder("Search transactions…").fill("Groceries");
   await expect(page.locator(".transaction-row")).toHaveCount(1);
   await page.locator(".row-menu>summary").first().click();
@@ -208,15 +208,12 @@ test("iPhone bottom navigation, More screens, readable forms, RTL and light mode
   await open(page);
   await expect(page.locator(".bottom-nav button")).toHaveCount(5);
   await expect(page.locator("aside")).not.toBeVisible();
-  for (const tab of ["Transactions", "Work", "Savings", "More", "Home"])
+  for (const tab of ["Money", "Work", "Goals", "Planner", "Home"])
     await page
       .locator(".bottom-nav")
       .getByRole("button", { name: tab, exact: true })
       .click();
-  await page
-    .locator(".bottom-nav")
-    .getByRole("button", { name: "More", exact: true })
-    .click();
+  await page.getByRole("button", { name: "More options", exact: true }).click();
   await page.getByRole("button", { name: /^Settings/ }).click();
   await expect(
     page.getByRole("button", { name: /^Profile & personal details/ }),

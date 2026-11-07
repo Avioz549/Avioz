@@ -1,3 +1,4 @@
+import { lifeSchema } from "./life-model";
 import { z } from "zod";
 import { calculateShift } from "./payroll";
 export const transactionSchema = z.looseObject({
@@ -10,6 +11,12 @@ export const transactionSchema = z.looseObject({
   recurring: z.boolean(),
   linkedShiftId: z.uuid().optional(),
   recurrenceId: z.uuid().optional(),
+  subscriptionId: z.uuid().optional(),
+  subscriptionOccurrence: z.iso.date().optional(),
+  recurrenceMonth: z
+    .string()
+    .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
+    .optional(),
 });
 export type Transaction = z.infer<typeof transactionSchema> & {
   projected?: boolean;
@@ -85,6 +92,10 @@ export const goalSchema = z.looseObject({
   monthly: z.number().min(0).max(1e9),
   date: z.iso.date().nullable(),
   savingShare: z.number().min(0).max(100).optional(),
+  completionHistory: z
+    .array(z.iso.datetime({ offset: true }))
+    .max(10000)
+    .optional(),
   contributions: z
     .array(
       z.looseObject({
@@ -99,6 +110,7 @@ export const goalSchema = z.looseObject({
 export type Goal = z.infer<typeof goalSchema>;
 export const dataSchema = z
   .looseObject({
+    life: lifeSchema.optional(),
     transactions: z.array(transactionSchema).max(10000),
     workplaces: z.array(workplaceSchema).max(100),
     shifts: z.array(shiftSchema).max(10000),
@@ -126,6 +138,34 @@ export const dataSchema = z
       theme: z.enum(["dark", "light", "midnight", "purple", "system"]),
     }),
   })
+  .refine(
+    (d) =>
+      !d.life ||
+      d.life.tasks.every(
+        (t) =>
+          !t.savingsGoalId || d.goals.some((g) => g.id === t.savingsGoalId),
+      ),
+    "Task savings goal does not exist",
+  )
+  .refine(
+    (d) =>
+      !d.life ||
+      d.life.payslips.every((p) =>
+        d.workplaces.some((w) => w.id === p.workplaceId),
+      ),
+    "Payslip workplace does not exist",
+  )
+  .refine(
+    (d) =>
+      new Set(
+        d.transactions
+          .filter((t) => t.subscriptionId)
+          .map(
+            (t) => `${t.subscriptionId}:${t.subscriptionOccurrence ?? t.date}`,
+          ),
+      ).size === d.transactions.filter((t) => t.subscriptionId).length,
+    "Subscription occurrence already confirmed",
+  )
   .refine(
     (d) =>
       d.shifts.every((s) => d.workplaces.some((w) => w.id === s.workplaceId)),
@@ -163,7 +203,9 @@ export const dataSchema = z
   .refine((d) => {
     const occurrences = d.transactions
       .filter((t) => t.recurrenceId)
-      .map((t) => `${t.recurrenceId}:${t.date.slice(0, 7)}`);
+      .map(
+        (t) => `${t.recurrenceId}:${t.recurrenceMonth ?? t.date.slice(0, 7)}`,
+      );
     return new Set(occurrences).size === occurrences.length;
   }, "A recurring occurrence can only be confirmed once per month")
   .refine(
@@ -201,18 +243,19 @@ export function monthTransactions(
   transactions: Transaction[],
   month: string,
 ): Transaction[] {
+  const confirmed = new Set(
+    transactions
+      .filter((t) => t.recurrenceId)
+      .map(
+        (t) => `${t.recurrenceId}:${t.recurrenceMonth ?? t.date.slice(0, 7)}`,
+      ),
+  );
   return transactions.flatMap((t) => {
     if (t.date.slice(0, 7) === month) return [t];
     if (!t.recurring || t.date.slice(0, 7) > month) return [];
     const [y, m] = month.split("-").map(Number);
     const day = Math.min(Number(t.date.slice(8)), new Date(y, m, 0).getDate());
-    if (
-      transactions.some(
-        (record) =>
-          record.recurrenceId === t.id && record.date.startsWith(month),
-      )
-    )
-      return [];
+    if (confirmed.has(`${t.id}:${month}`)) return [];
     return [
       {
         ...t,

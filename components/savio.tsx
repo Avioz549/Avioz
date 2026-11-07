@@ -1,11 +1,31 @@
 "use client";
+import dynamic from "next/dynamic";
+import { LifeHome, SmartDayScreen } from "./life/home";
+import { CashFlowPanel, SubscriptionsScreen } from "./life/money";
+import { WorkPro } from "./life/work";
+import { PersonalGoalsScreen } from "./life/goals";
+import { LifeEditor } from "./life/editor";
+import type { LifeDraft } from "./life/types";
+import { lifeOf } from "@/lib/life";
+import { useLifeReminders } from "@/lib/use-life-reminders";
+const PlannerScreen = dynamic(
+  () => import("./life/planner").then((m) => m.PlannerScreen),
+  { loading: () => <p role="status">טוען תכנון…</p> },
+);
+const AnalyticsScreen = dynamic(
+  () => import("./life/analytics").then((m) => m.AnalyticsScreen),
+  { loading: () => <p role="status">טוען תובנות…</p> },
+);
+const RecapScreen = dynamic(
+  () => import("./life/analytics").then((m) => m.RecapScreen),
+  { loading: () => <p role="status">טוען סיכום…</p> },
+);
 import { monthlyPayroll } from "@/lib/payroll";
 import { localAnswer, goalShifts } from "@/lib/insights";
 import {
   SalaryOverview,
   ShiftCalendar,
   ReportsScreen,
-  InsightsPanel,
   CategoryManager,
 } from "./production-suite";
 import { PayrollFields, ShiftExtras } from "./payroll-fields";
@@ -16,7 +36,14 @@ import { useAppClock } from "@/lib/use-app-clock";
 import { overlappingCompletedShifts } from "@/lib/shift-overlap";
 import { resolveTheme } from "@/lib/themes";
 import Link from "next/link";
-import { Fragment, useEffect, useState, useRef, useCallback } from "react";
+import {
+  Fragment,
+  useEffect,
+  useState,
+  useRef,
+  useCallback,
+  useMemo,
+} from "react";
 import {
   LayoutDashboard,
   ArrowLeftRight,
@@ -40,7 +67,6 @@ import {
   ShieldCheck,
   Menu,
   TrendingUp,
-  Bell,
   MoreHorizontal,
 } from "lucide-react";
 import {
@@ -95,7 +121,12 @@ type Tab =
   | "challenges"
   | "welcome"
   | "reports"
-  | "guide";
+  | "guide"
+  | "planner"
+  | "smart"
+  | "subscriptions"
+  | "insights"
+  | "recap";
 type Editor =
   | { kind: "transaction"; value?: Transaction }
   | { kind: "goal"; value?: Goal }
@@ -144,7 +175,8 @@ export function Savio() {
     [mode, setMode] = useState<"conservative" | "balanced" | "accelerated">(
       "balanced",
     ),
-    [backupDue, setBackupDue] = useState(false);
+    [backupDue, setBackupDue] = useState(false),
+    [lifeDraft, setLifeDraft] = useState<LifeDraft | null>(null);
   const calendarChanged = useCallback(
     (previousDay: string, nextDay: string) => {
       const previousMonth = previousDay.slice(0, 7),
@@ -156,10 +188,20 @@ export function Savio() {
     },
     [],
   );
+  const scheduleBoundaries = useMemo(
+    () =>
+      data.shifts
+        .filter((s) => s.scheduled)
+        .flatMap((s) => [Date.parse(s.start), Date.parse(s.end!)])
+        .sort((a, b) => a - b),
+    [data.shifts],
+  );
   const { now, refreshClock } = useAppClock(
     data.shifts.some((s) => !s.end && (!s.pauseStartedAt || s.paidBreak)),
     calendarChanged,
+    scheduleBoundaries,
   );
+  useLifeReminders(data, ready);
   useReminders(
     data.transactions,
     data.reminders,
@@ -218,6 +260,11 @@ export function Savio() {
           "challenges",
           "welcome",
           "guide",
+          "planner",
+          "smart",
+          "subscriptions",
+          "insights",
+          "recap",
         ].includes(initialTab)
       )
         updateTab(initialTab as Tab);
@@ -227,12 +274,18 @@ export function Savio() {
         revision.current = snapshot.revision;
         setData(snapshot.data);
         setReady(true);
+        if (!initialTab) updateTab(lifeOf(snapshot.data).preferences.home);
         if (
           !initialTab &&
           !localStorage.getItem("savio-welcome-seen") &&
           !snapshot.data.transactions.length &&
           !snapshot.data.workplaces.length &&
-          !snapshot.data.goals.length
+          !snapshot.data.goals.length &&
+          !snapshot.data.reminders.length &&
+          !lifeOf(snapshot.data).tasks.length &&
+          !lifeOf(snapshot.data).events.length &&
+          !lifeOf(snapshot.data).personalGoals.length &&
+          !lifeOf(snapshot.data).subscriptions.length
         )
           updateTab("welcome");
         if (migrated)
@@ -307,6 +360,7 @@ export function Savio() {
       const snapshot = await saveWorkspace(parsed.data, revision.current);
       revision.current = snapshot.revision;
       setData(parsed.data);
+      refreshClock();
       return true;
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Save failed");
@@ -335,7 +389,8 @@ export function Savio() {
     if (!confirm(he ? "למחוק את הרשומה?" : "Delete this record?")) return;
     if (
       kind === "workplaces" &&
-      data.shifts.some((s) => s.workplaceId === key)
+      (data.shifts.some((s) => s.workplaceId === key) ||
+        lifeOf(data).payslips.some((p) => p.workplaceId === key))
     ) {
       setMessage("Remove associated shifts before deleting a workplace.");
       return;
@@ -343,6 +398,16 @@ export function Savio() {
     await commit({
       ...data,
       [kind]: data[kind].filter((x) => x.id !== key),
+      ...(kind === "goals" && data.life
+        ? {
+            life: {
+              ...data.life,
+              tasks: data.life.tasks.map((t) =>
+                t.savingsGoalId === key ? { ...t, savingsGoalId: null } : t,
+              ),
+            },
+          }
+        : {}),
       ...(kind === "shifts"
         ? {
             transactions: data.transactions.map((t) =>
@@ -452,6 +517,18 @@ export function Savio() {
           recurring: checked("recurring"),
           linkedShiftId: v("linkedShiftId") || undefined,
           recurrenceId: editor.value?.recurrenceId,
+          ...(editor.value?.recurrenceId
+            ? {
+                recurrenceMonth:
+                  editor.value.recurrenceMonth ?? editor.value.date.slice(0, 7),
+              }
+            : {}),
+          ...(editor.value?.subscriptionId
+            ? {
+                subscriptionOccurrence:
+                  editor.value.subscriptionOccurrence ?? editor.value.date,
+              }
+            : {}),
         });
         next.transactions = editor.value
           ? data.transactions.map((x) => (x.id === value.id ? value : x))
@@ -634,49 +711,94 @@ export function Savio() {
     { key: "reports", icon: Download },
     { key: "ai", icon: Sparkles },
     { key: "challenges", icon: TrendingUp },
+    { key: "planner", icon: CalendarDays },
+    { key: "smart", icon: Sparkles },
+    { key: "subscriptions", icon: ArrowLeftRight },
+    { key: "insights", icon: TrendingUp },
+    { key: "recap", icon: ChartPie },
     { key: "settings", icon: Settings },
   ] as const;
   const label = (key: Tab) =>
-    key === "guide"
+    key === "planner"
       ? he
-        ? "מדריך שימוש"
-        : "User guide"
-      : key === "reports"
+        ? "תכנון"
+        : "Planner"
+      : key === "smart"
         ? he
-          ? "דוחות"
-          : "Reports"
-        : key === "welcome"
+          ? "היום החכם"
+          : "Smart Day"
+        : key === "subscriptions"
           ? he
-            ? "ברוכים הבאים"
-            : "Welcome"
-          : key === "more"
+            ? "מנויים ותשלומים"
+            : "Subscriptions"
+          : key === "insights"
             ? he
-              ? "עוד"
-              : "More"
-            : key === "challenges"
+              ? "תובנות"
+              : "Insights"
+            : key === "recap"
               ? he
-                ? "אתגרים"
-                : "Challenges"
-              : key === "overview"
+                ? "סיכום חודשי"
+                : "Monthly recap"
+              : key === "transactions"
                 ? he
-                  ? "בית"
-                  : "Home"
-                : key === "shifts"
+                  ? "כסף"
+                  : "Money"
+                : key === "guide"
                   ? he
-                    ? "עבודה"
-                    : "Work"
-                  : key === "goals"
+                    ? "מדריך שימוש"
+                    : "User guide"
+                  : key === "reports"
                     ? he
-                      ? "חיסכון"
-                      : "Savings"
-                    : t[key];
+                      ? "דוחות"
+                      : "Reports"
+                    : key === "welcome"
+                      ? he
+                        ? "ברוכים הבאים"
+                        : "Welcome"
+                      : key === "more"
+                        ? he
+                          ? "עוד"
+                          : "More"
+                        : key === "challenges"
+                          ? he
+                            ? "אתגרים"
+                            : "Challenges"
+                          : key === "overview"
+                            ? he
+                              ? "בית"
+                              : "Home"
+                            : key === "shifts"
+                              ? he
+                                ? "עבודה"
+                                : "Work"
+                              : key === "goals"
+                                ? he
+                                  ? "יעדים"
+                                  : "Goals"
+                                : t[key];
   const primaryNav = [
     { key: "overview", icon: LayoutDashboard },
     { key: "transactions", icon: ArrowLeftRight },
     { key: "shifts", icon: Clock3 },
+    { key: "planner", icon: CalendarDays },
     { key: "goals", icon: Target },
-    { key: "more", icon: Menu },
   ] as const;
+  const lifeProps = {
+    data,
+    month,
+    now,
+    busy,
+    onSave: commit,
+    onEdit: setLifeDraft,
+    onNavigate: (next: string) => setTab(next as Tab),
+    onShift: (value: Shift) => setEditor({ kind: "shift", value }),
+  };
+  const quickAction = (key: string) => {
+    if (key === "transaction") setEditor({ kind: "transaction" });
+    else if (key === "shift") setEditor({ kind: "shift" });
+    else if (key === "task" || key === "event") setLifeDraft({ kind: key });
+    else setLifeDraft({ kind: "personal-goal" });
+  };
   async function recordOccurrence(source: Transaction) {
     const sourceRecord = { ...source };
     delete sourceRecord.projected;
@@ -685,6 +807,7 @@ export function Savio() {
       id: id(),
       recurring: false,
       recurrenceId: source.id,
+      recurrenceMonth: source.date.slice(0, 7),
     });
     await commit({ ...data, transactions: [...data.transactions, record] });
   }
@@ -827,6 +950,40 @@ export function Savio() {
           </div>
           {tab === "goals" && (
             <>
+              {progress >= 100 && !g.completionHistory?.length && (
+                <button
+                  className="secondary"
+                  disabled={busy}
+                  onClick={() => {
+                    if (
+                      confirm(
+                        he
+                          ? "לתעד שהיעד הושלם כעת? פעולה זו מתעדת מועד השלמה בלבד ואינה מעבירה כסף."
+                          : "Record this goal as completed now? This logs the completion date and does not transfer money.",
+                      )
+                    )
+                      void commit({
+                        ...data,
+                        goals: data.goals.map((x) =>
+                          x.id === g.id
+                            ? {
+                                ...x,
+                                completionHistory: [new Date().toISOString()],
+                              }
+                            : x,
+                        ),
+                      });
+                  }}
+                >
+                  {he ? "תיעוד השלמת היעד" : "Record goal completion"}
+                </button>
+              )}
+              {g.completionHistory?.map((stamp) => (
+                <p className="small positive" key={stamp}>
+                  {he ? "השלמה שתועדה" : "Recorded completion"} ·{" "}
+                  {new Date(stamp).toLocaleDateString(he ? "he-IL" : "en-US")}
+                </p>
+              ))}
               <details className="goal-plan-details">
                 <summary>
                   {he ? "תכנית והפקדות" : "Plan & contributions"}
@@ -995,7 +1152,7 @@ export function Savio() {
       />
     );
   return (
-    <div className={"app-shell approved-app screen-" + tab}>
+    <div className={"app-shell approved-app savio-v4 screen-" + tab}>
       <a className="skip-link" href="#main-content">
         {he ? "דילוג לתוכן" : "Skip to content"}
       </a>
@@ -1064,10 +1221,10 @@ export function Savio() {
             <button
               className="icon-button"
               aria-label={he ? "עוד ואפשרויות" : "More options"}
-              onClick={() => setTab(tab === "overview" ? "calendar" : "more")}
+              onClick={() => setTab("more")}
             >
               {tab === "overview" ? (
-                <Bell size={20} />
+                <Menu size={20} />
               ) : (
                 <ArrowRight size={20} />
               )}
@@ -1081,11 +1238,15 @@ export function Savio() {
               className="icon-button positive"
               aria-label={he ? "פעולות מסך" : "Screen actions"}
               onClick={() =>
-                tab === "goals"
-                  ? setEditor({ kind: "goal" })
-                  : tab === "transactions"
-                    ? setEditor({ kind: "transaction" })
-                    : setTab(tab === "settings" ? "more" : "calendar")
+                tab === "planner" || tab === "smart"
+                  ? setLifeDraft({ kind: "task" })
+                  : tab === "shifts"
+                    ? setTab("planner")
+                    : tab === "goals"
+                      ? setEditor({ kind: "goal" })
+                      : tab === "transactions"
+                        ? setEditor({ kind: "transaction" })
+                        : setTab(tab === "settings" ? "more" : "calendar")
               }
             >
               {tab === "settings" ? (
@@ -1147,14 +1308,12 @@ export function Savio() {
               <p className="eyebrow">
                 <span /> {t.greeting}
               </p>
-              <h1>
-                {tab === "overview"
-                  ? he
-                    ? `שלום${data.profile.name ? ", " + data.profile.name : ""}`
-                    : `Hello${data.profile.name ? ", " + data.profile.name : ""}`
-                  : label(tab)}
-                <span className="heading-dot">.</span>
-              </h1>
+              {tab !== "overview" && (
+                <h1>
+                  {label(tab)}
+                  <span className="heading-dot">.</span>
+                </h1>
+              )}
               <p className="muted">
                 {tab === "overview" ? t.subtitle : "הכסף שלך. העתיד שלך."}
               </p>
@@ -1181,7 +1340,10 @@ export function Savio() {
               </button>
             </div>
           </div>
-          <AppUpdate he={he} busy={busy || Boolean(editor)} />
+          <AppUpdate
+            he={he}
+            busy={busy || Boolean(editor) || Boolean(lifeDraft)}
+          />
           {message && (
             <div role="status" className="notice">
               <span>{message}</span>
@@ -1191,27 +1353,35 @@ export function Savio() {
             </div>
           )}
           {tab === "overview" && (
-            <>
-              <ReferenceDashboard
-                data={data}
-                month={month}
-                money={money}
-                pay={pay}
-                onAdd={() => setEditor({ kind: "transaction" })}
-                onWork={() => setTab("shifts")}
-                onSavings={() => setTab("goals")}
-                recent={transactionList(
-                  txs
-                    .filter((x) => !x.projected)
-                    .reverse()
-                    .sort((a, b) => b.date.localeCompare(a.date))
-                    .slice(0, 3),
-                )}
-              />
-              <SalaryOverview data={data} month={month} now={now} compact />
-              <InsightsPanel data={data} month={month} now={now} />
-            </>
+            <LifeHome
+              {...lifeProps}
+              onQuick={quickAction}
+              finance={
+                <ReferenceDashboard
+                  data={data}
+                  month={month}
+                  money={money}
+                  pay={pay}
+                  onAdd={() => setEditor({ kind: "transaction" })}
+                  onWork={() => setTab("shifts")}
+                  onSavings={() => setTab("goals")}
+                  recent={null}
+                />
+              }
+              recent={transactionList(
+                [...txs]
+                  .filter((t) => !t.projected)
+                  .sort((a, b) => b.date.localeCompare(a.date))
+                  .slice(0, 4),
+              )}
+            />
           )}
+          {tab === "planner" && <PlannerScreen {...lifeProps} />}
+          {tab === "smart" && <SmartDayScreen {...lifeProps} />}
+          {tab === "subscriptions" && <SubscriptionsScreen {...lifeProps} />}
+          {tab === "insights" && <AnalyticsScreen {...lifeProps} />}
+          {tab === "recap" && <RecapScreen {...lifeProps} />}
+          {tab === "transactions" && <CashFlowPanel {...lifeProps} />}
           {tab === "transactions" && (
             <article className="panel">
               <div
@@ -1322,6 +1492,10 @@ export function Savio() {
                 onManual={() => setEditor({ kind: "shift" })}
               />
               <SalaryOverview data={data} month={month} now={now} />
+              <WorkPro
+                {...lifeProps}
+                onNewShift={(date) => setEditor({ kind: "shift", date })}
+              />
               <ShiftCalendar
                 data={data}
                 month={month}
@@ -1585,6 +1759,7 @@ export function Savio() {
               </div>
             </>
           )}
+          {tab === "goals" && <PersonalGoalsScreen {...lifeProps} />}
           {tab === "goals" && (
             <div className="spaced">
               <PurchaseCalculator workplaces={data.workplaces} he={he} />
@@ -1736,6 +1911,11 @@ export function Savio() {
               {nav
                 .filter((n) =>
                   [
+                    "planner",
+                    "smart",
+                    "subscriptions",
+                    "insights",
+                    "recap",
                     "budgets",
                     "reports",
                     "calendar",
@@ -1861,7 +2041,12 @@ export function Savio() {
               data.shifts.length ||
               data.goals.length ||
               data.reminders.length ||
-              Object.keys(data.budgets).length,
+              Object.keys(data.budgets).length ||
+              lifeOf(data).tasks.length ||
+              lifeOf(data).events.length ||
+              lifeOf(data).personalGoals.length ||
+              lifeOf(data).subscriptions.length ||
+              lifeOf(data).payslips.length,
             ) && (
               <div className="backup-reminder">
                 <ShieldCheck size={20} />
@@ -1921,15 +2106,19 @@ export function Savio() {
         {primaryNav.map(({ key, icon: Icon }) => {
           const selected =
             tab === key ||
-            (key === "more" &&
+            (key === "overview" &&
               [
-                "budgets",
-                "calendar",
-                "reports",
+                "smart",
+                "insights",
+                "recap",
+                "more",
+                "settings",
                 "ai",
                 "challenges",
-                "settings",
-              ].includes(tab));
+              ].includes(tab)) ||
+            (key === "transactions" &&
+              ["subscriptions", "budgets", "reports"].includes(tab)) ||
+            (key === "planner" && tab === "calendar");
           return (
             <button
               aria-current={selected ? "page" : undefined}
@@ -1943,6 +2132,15 @@ export function Savio() {
           );
         })}
       </nav>
+      {lifeDraft && (
+        <LifeEditor
+          data={data}
+          busy={busy}
+          onSave={commit}
+          draft={lifeDraft}
+          onClose={() => setLifeDraft(null)}
+        />
+      )}
       {editor && (
         <Modal
           title={

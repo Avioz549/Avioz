@@ -1,14 +1,21 @@
 // Only the generic app shell, icons and build assets are cached. Financial
 // records stay exclusively in IndexedDB; all API requests use the network.
-const CACHE = "savio-public-shell-v4";
+const CACHE = "savio-public-shell-38cd9c656010f5c8";
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE).then(async (cache) => {
+      const assetsResponse = await fetch("/offline-assets.json", {
+        cache: "no-store",
+      });
+      if (!assetsResponse.ok)
+        throw new Error("Offline asset manifest unavailable");
+      const assetsManifest = await assetsResponse.json();
       await cache.addAll([
         "/",
         "/offline.html",
         "/icons/icon-192.png",
         "/icons/icon-512.png",
+        ...assetsManifest.assets,
       ]);
       const shell = await cache.match("/");
       const html = await shell.text();
@@ -18,7 +25,10 @@ self.addEventListener("install", (event) => {
       await cache.addAll([...new Set(assets)]);
     }),
   );
-  self.skipWaiting();
+  // Activate after old clients close, or after an explicit safe refresh request.
+});
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "ACTIVATE_SAVIO_UPDATE") self.skipWaiting();
 });
 self.addEventListener("activate", (event) => {
   event.waitUntil(

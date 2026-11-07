@@ -41,8 +41,8 @@ async function workspace(page: Page) {
         revision: number;
       }>((resolve, reject) => {
         const req = db
-          .transaction("workspace")
-          .objectStore("workspace")
+          .transaction("workspace-v4")
+          .objectStore("workspace-v4")
           .get("main");
         req.onsuccess = () => resolve(req.result);
         req.onerror = () => reject(req.error);

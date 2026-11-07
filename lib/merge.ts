@@ -1,3 +1,4 @@
+import { emptyLife, lifeSchema } from "./life-model";
 import { dataSchema, type FinanceData } from "./finance";
 const canonical = (v: unknown): string =>
   JSON.stringify(v, function (k, value) {
@@ -66,6 +67,58 @@ export function mergeBackups(
         dataSchema.shape.profile.shape,
       ),
     },
+    ...(current.life || incoming.life
+      ? {
+          life: (() => {
+            const a = current.life ?? emptyLife(),
+              b = incoming.life ?? emptyLife();
+            const targets = { ...a.workTargets };
+            for (const [key, value] of Object.entries(b.workTargets)) {
+              if (
+                key in targets &&
+                canonical(targets[key]) !== canonical(value)
+              )
+                throw new Error("Conflicting work target");
+              targets[key] = value;
+            }
+            return {
+              ...a,
+              ...mergeOpaqueFields(a, b, {
+                version: 1,
+                tasks: 1,
+                events: 1,
+                personalGoals: 1,
+                subscriptions: 1,
+                payslips: 1,
+                workTargets: 1,
+                preferences: 1,
+              }),
+              tasks: mergeRows(a.tasks, b.tasks, "tasks"),
+              events: mergeRows(a.events, b.events, "events"),
+              personalGoals: mergeRows(
+                a.personalGoals,
+                b.personalGoals,
+                "personal goals",
+              ),
+              subscriptions: mergeRows(
+                a.subscriptions,
+                b.subscriptions,
+                "subscriptions",
+              ),
+              payslips: mergeRows(a.payslips, b.payslips, "payslips"),
+              workTargets: targets,
+              preferences: {
+                ...a.preferences,
+                ...mergeOpaqueFields(
+                  a.preferences,
+                  b.preferences,
+                  lifeSchema.shape.preferences.shape,
+                ),
+              },
+            };
+          })(),
+        }
+      : {}),
     transactions: mergeRows(
       current.transactions,
       incoming.transactions,

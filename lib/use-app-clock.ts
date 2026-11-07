@@ -1,9 +1,11 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { clockSnapshot, nextClockDelay } from "./time";
+const NO_BOUNDARIES: number[] = [];
 export function useAppClock(
   ticking: boolean,
   onCalendarChange: (previousDay: string, nextDay: string) => void,
+  boundaries: readonly number[] = NO_BOUNDARIES,
 ) {
   const [now, setNow] = useState(() => new Date());
   const observed = useRef(clockSnapshot(now));
@@ -28,12 +30,14 @@ export function useAppClock(
     const schedule = () => {
       clearTimeout(timer);
       if (document.visibilityState === "hidden") return;
+      const instant = Date.now();
+      const boundary = boundaries.find((time) => time > instant) ?? Infinity;
       timer = setTimeout(
         () => {
-          refresh(ticking);
+          refresh(ticking || Date.now() >= boundary);
           schedule();
         },
-        nextClockDelay(new Date(), ticking),
+        Math.min(nextClockDelay(new Date(), ticking), boundary - instant + 1),
       );
     };
     const wake = () => {
@@ -50,6 +54,6 @@ export function useAppClock(
       window.removeEventListener("pageshow", wake);
       document.removeEventListener("visibilitychange", wake);
     };
-  }, [ticking, refresh]);
+  }, [ticking, refresh, boundaries]);
   return { now, refreshClock: refresh };
 }
