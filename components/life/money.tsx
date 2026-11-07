@@ -18,7 +18,7 @@ export function CashFlowPanel({ data, month, onNavigate }: LifeProps) {
       <div className="flex-between">
         <div>
           <span className="eyebrow">CASH FLOW</span>
-          <h2>{tr("Plan with clarity", "מתכננים עם תמונה ברורה")}</h2>
+          <h2>{tr("Month-end forecast", "תחזית סוף החודש")}</h2>
         </div>
         <TrendingUp className="positive" />
       </div>
@@ -86,7 +86,10 @@ export function SubscriptionsScreen(props: LifeProps) {
     }).format(n);
   return (
     <section>
-      <CashFlowPanel {...props} />
+      <details className="forecast-disclosure">
+        <summary>{tr("View monthly forecast", "הצגת התחזית החודשית")}</summary>
+        <CashFlowPanel {...props} />
+      </details>
       <div className="life-section-head">
         <h2>{tr("Recurring payments & income", "תשלומים והכנסות חוזרים")}</h2>
         <button

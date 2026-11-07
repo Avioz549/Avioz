@@ -11,6 +11,7 @@ import {
   CalendarDays,
   Sparkles,
   ChevronLeft,
+  ChevronRight,
   ArrowUpRight,
   Wallet,
 } from "lucide-react";
@@ -265,6 +266,7 @@ export function LifeHome(
   props: LifeProps & {
     finance: React.ReactNode;
     recent: React.ReactNode;
+    periodControl?: React.ReactNode;
     onQuick: (key: string) => void;
   },
 ) {
@@ -356,10 +358,6 @@ export function LifeHome(
     "insights",
     "recent",
   ];
-  const hasCustomOrder =
-    prefs.widgets.join(",") !== legacyDefaultOrder.join(",") &&
-    prefs.widgets.join(",") !==
-      "work,finance,savings,smart,goals,payments,insights,recent";
   const preferredOrder =
     prefs.widgets.join(",") === legacyDefaultOrder.join(",")
       ? ([
@@ -373,20 +371,36 @@ export function LifeHome(
           "recent",
         ] as const)
       : prefs.widgets;
-  const order = [
+  const allOrdered = [
     ...preferredOrder,
     ...widgetIds.filter((id) => !prefs.widgets.includes(id)),
+  ];
+  const primaryWidget = (id: string) =>
+    ["work", "finance", "savings", "smart"].includes(id);
+  const order = [
+    ...allOrdered.filter(primaryWidget),
+    ...allOrdered.filter((id) => !primaryWidget(id)),
   ];
   const move = (id: (typeof widgetIds)[number], delta: number) => {
     const next = [...order],
       index = next.indexOf(id),
       other = index + delta;
-    if (other < 0 || other >= next.length) return;
+    if (
+      other < 0 ||
+      other >= next.length ||
+      primaryWidget(next[index]) !== primaryWidget(next[other])
+    )
+      return;
     [next[index], next[other]] = [next[other], next[index]];
     savePreferences({ ...prefs, widgets: next });
   };
   const widgets: Record<(typeof widgetIds)[number], React.ReactNode> = {
-    finance: props.finance,
+    finance: (
+      <>
+        <div className="home-period">{props.periodControl}</div>
+        {props.finance}
+      </>
+    ),
     smart: (
       <article className="panel ocean-tasks">
         <div className="panel-heading">
@@ -500,7 +514,7 @@ export function LifeHome(
           aria-label={tr("Open work", "פתיחת העבודה")}
           onClick={() => onNavigate?.("shifts")}
         >
-          <ChevronLeft size={22} />
+          {he ? <ChevronLeft size={22} /> : <ChevronRight size={22} />}
         </button>
       </article>
     ),
@@ -640,7 +654,12 @@ export function LifeHome(
           <p className="eyebrow">
             {new Date(today + "T12:00:00").toLocaleDateString(
               he ? "he-IL" : "en-US",
-              { weekday: "long", day: "numeric", month: "long" },
+              {
+                weekday: "long",
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+              },
             )}
           </p>
           <h1>
@@ -663,8 +682,7 @@ export function LifeHome(
           .filter(
             (id) =>
               !prefs.hidden.includes(id) &&
-              (hasCustomOrder ||
-                ["work", "finance", "savings", "smart"].includes(id)),
+              ["work", "finance", "savings", "smart"].includes(id),
           )
           .map((id) => (
             <section
@@ -704,33 +722,32 @@ export function LifeHome(
           })}
         </div>
       </section>
-      {!hasCustomOrder &&
-        order.some(
-          (id) =>
-            !prefs.hidden.includes(id) &&
-            !["work", "finance", "savings", "smart"].includes(id),
-        ) && (
-          <details className="ocean-more-widgets">
-            <summary>{tr("More from your day", "עוד מהיום שלך")}</summary>
-            <div className="life-widget-grid">
-              {order
-                .filter(
-                  (id) =>
-                    !prefs.hidden.includes(id) &&
-                    !["work", "finance", "savings", "smart"].includes(id),
-                )
-                .map((id) => (
-                  <section
-                    className={"life-widget widget-" + id}
-                    data-widget={id}
-                    key={id}
-                  >
-                    {widgets[id]}
-                  </section>
-                ))}
-            </div>
-          </details>
-        )}
+      {order.some(
+        (id) =>
+          !prefs.hidden.includes(id) &&
+          !["work", "finance", "savings", "smart"].includes(id),
+      ) && (
+        <details className="ocean-more-widgets">
+          <summary>{tr("More from your day", "עוד מהיום שלך")}</summary>
+          <div className="life-widget-grid">
+            {order
+              .filter(
+                (id) =>
+                  !prefs.hidden.includes(id) &&
+                  !["work", "finance", "savings", "smart"].includes(id),
+              )
+              .map((id) => (
+                <section
+                  className={"life-widget widget-" + id}
+                  data-widget={id}
+                  key={id}
+                >
+                  {widgets[id]}
+                </section>
+              ))}
+          </div>
+        </details>
+      )}
       {prefs.hidden.length === widgetIds.length && (
         <article className="panel">
           <p>
@@ -755,8 +772,8 @@ export function LifeHome(
           {preferenceError && <p role="alert">{preferenceError}</p>}
           <p className="muted">
             {tr(
-              "Changes are saved on this device. Custom ordering displays all selected widgets in that order; defaults keep extra insights collapsed.",
-              "השינויים נשמרים במכשיר. סדר אישי מציג את כל הרכיבים שנבחרו לפי הסדר שלכם; בברירת המחדל התובנות הנוספות נמצאות באזור נפתח.",
+              "Changes are saved on this device. Arrange the daily cards and optional extras within their groups. Additional widgets stay in the expandable overview.",
+              "השינויים נשמרים במכשיר. סדרו את כרטיסי היום ואת התוספות בתוך הקבוצות שלהם. הרכיבים הנוספים נשארים באזור הנפתח.",
             )}
           </p>
           {order.map((id, i) => (
@@ -780,7 +797,11 @@ export function LifeHome(
               <button
                 className="icon-button"
                 aria-label={tr("Move up ", "הזזה למעלה ") + labels[id]}
-                disabled={busy || i === 0}
+                disabled={
+                  busy ||
+                  i === 0 ||
+                  primaryWidget(id) !== primaryWidget(order[i - 1])
+                }
                 onClick={() => move(id, -1)}
               >
                 <ArrowUp size={18} />
@@ -788,7 +809,11 @@ export function LifeHome(
               <button
                 className="icon-button"
                 aria-label={tr("Move down ", "הזזה למטה ") + labels[id]}
-                disabled={busy || i === order.length - 1}
+                disabled={
+                  busy ||
+                  i === order.length - 1 ||
+                  primaryWidget(id) !== primaryWidget(order[i + 1])
+                }
                 onClick={() => move(id, 1)}
               >
                 <ArrowDown size={18} />

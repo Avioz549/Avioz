@@ -134,9 +134,7 @@ async function open(page: Page, tab: string) {
   if (tab === "planner")
     await expect(page.locator(".life-planner")).toBeVisible();
   if (tab === "insights")
-    await expect(
-      page.getByText("SAVIO INSIGHTS", { exact: true }),
-    ).toBeVisible();
+    await expect(page.locator(".insights-screen")).toBeVisible();
   if (tab === "recap") await expect(page.locator(".life-recap")).toBeVisible();
 }
 test("fresh install defaults to Ocean Blue with a single truthful dashboard and home-only photo", async ({
@@ -157,8 +155,8 @@ test("fresh install defaults to Ocean Blue with a single truthful dashboard and 
   await expect(page.locator(".main-content h1")).toHaveCount(1);
   expect(
     await page
-      .locator(".main-content")
-      .evaluate((el) => getComputedStyle(el, "::before").backgroundImage),
+      .locator(".life-home-intro")
+      .evaluate((el) => getComputedStyle(el).backgroundImage),
   ).toContain("ocean-sunset.webp");
   expect((await stored(page)).data.transactions).toEqual([]);
 });
@@ -305,9 +303,13 @@ test("Ocean layouts keep all modules clean, readable and navigable across mobile
       const background = await page
         .locator(".main-content")
         .evaluate((el) => getComputedStyle(el, "::before").backgroundImage);
-      expect(background.includes("ocean-sunset.webp"), tab).toBe(
-        tab === "overview",
-      );
+      expect(background.includes("ocean-sunset.webp"), tab).toBe(false);
+      if (tab === "overview")
+        expect(
+          await page
+            .locator(".life-home-intro")
+            .evaluate((el) => getComputedStyle(el).backgroundImage),
+        ).toContain("ocean-sunset.webp");
       if (
         width === 390 &&
         [
@@ -361,7 +363,7 @@ test("Ocean photo and local records remain usable offline with no API response c
   ).toBeGreaterThan(0);
   await page
     .locator(".bottom-nav")
-    .getByRole("button", { name: "תכנון", exact: true })
+    .getByRole("button", { name: "יומן", exact: true })
     .click();
   await expect(page.locator(".life-planner")).toBeVisible();
   expect(

@@ -6,6 +6,7 @@ import "./themes.css";
 import "./production.css";
 import "./life.css";
 import "./ocean.css";
+import "./refined.css";
 export const metadata: Metadata = {
   title: "SAVIO 4.0 — הכסף שלך. העתיד שלך.",
   description: "Your money. Your future. Personal finance, shifts and savings.",

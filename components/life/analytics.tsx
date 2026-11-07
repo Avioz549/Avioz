@@ -1,4 +1,5 @@
 "use client";
+import { SectionTabs, SectionPanel } from "../section-tabs";
 import { useMemo, useState } from "react";
 import {
   BarChart,
@@ -130,6 +131,9 @@ export function AnalyticsScreen({ data, month, now, onNavigate }: LifeProps) {
       </ResponsiveContainer>
     </article>
   );
+  const [insightView, setInsightView] = useState<"money" | "work" | "life">(
+    "money",
+  );
   const hasHistory =
     data.transactions.length ||
     data.shifts.length ||
@@ -137,7 +141,7 @@ export function AnalyticsScreen({ data, month, now, onNavigate }: LifeProps) {
     data.goals.length ||
     life.personalGoals.length;
   return (
-    <section>
+    <section className="insights-screen">
       <div className="life-section-head">
         <div>
           <span className="eyebrow">SAVIO INSIGHTS</span>
@@ -155,85 +159,113 @@ export function AnalyticsScreen({ data, month, now, onNavigate }: LifeProps) {
           )}
         </p>
       )}
+      <SectionTabs
+        id="insights"
+        label={tr("Insight sections", "תחומי תובנות")}
+        value={insightView}
+        onChange={setInsightView}
+        items={[
+          { key: "money", label: tr("Money", "כסף") },
+          { key: "work", label: tr("Work", "עבודה") },
+          { key: "life", label: tr("Goals & tasks", "יעדים ומשימות") },
+        ]}
+      />
       <div className="life-grid-two">
-        {chart(tr("Estimated gross earnings", "ברוטו משוער"), [
-          ["gross", tr("Gross estimate", "ברוטו משוער"), "var(--green)"],
-        ])}
-        {chart(
-          tr("Work hours", "שעות עבודה"),
-          [["hours", tr("Paid hours", "שעות בתשלום"), "var(--green)"]],
-          true,
-        )}
-        {chart(
-          tr(
-            "Received income & recorded expenses",
-            "הכנסות שהתקבלו והוצאות מתועדות",
-          ),
-          [
-            ["income", tr("Income", "הכנסות"), "var(--green)"],
-            ["expenses", tr("Expenses", "הוצאות"), "#ed8791"],
-          ],
-        )}
-        {chart(
-          tr("Recorded savings movement", "תנועת חיסכון מתועדת"),
-          [
-            [
-              "savings",
-              tr("Deposits minus withdrawals", "הפקדות פחות משיכות"),
-              "var(--green)",
-            ],
-          ],
-          true,
-        )}
-        {chart(tr("Completed tasks & goals", "משימות ויעדים שהושלמו"), [
-          ["tasks", tr("Tasks", "משימות"), "var(--green)"],
-          ["goals", tr("Goals", "יעדים"), "#8ba7f7"],
-        ])}
-        <article className="panel">
-          <h3>{tr("Goal progress now", "התקדמות היעדים כעת")}</h3>
-          {data.goals.map((g) => (
-            <div key={g.id}>
-              <p>
-                {g.name} ·{" "}
-                {Math.min(100, Math.round((goalSaved(g) / g.target) * 100))}%
-              </p>
-              <div className="progress">
-                <i
-                  style={{
-                    width: Math.min(100, (goalSaved(g) / g.target) * 100) + "%",
-                  }}
-                />
-              </div>
-            </div>
-          ))}
-          {life.personalGoals.map((g) => (
-            <div key={g.id}>
-              <p>
-                {g.name} · {Math.round(personalProgress(g))}%
-              </p>
-              <div className="progress">
-                <i style={{ width: personalProgress(g) + "%" }} />
-              </div>
-            </div>
-          ))}
-          {!data.goals.length && !life.personalGoals.length && (
-            <p className="muted">
-              {tr(
-                "Add a goal to see its progress.",
-                "הוסיפו יעד כדי לראות התקדמות.",
-              )}
-            </p>
+        <SectionPanel id="insights" value="work" active={insightView}>
+          {" "}
+          {chart(tr("Estimated gross earnings", "ברוטו משוער"), [
+            ["gross", tr("Gross estimate", "ברוטו משוער"), "var(--green)"],
+          ])}
+          {chart(
+            tr("Work hours", "שעות עבודה"),
+            [["hours", tr("Paid hours", "שעות בתשלום"), "var(--green)"]],
+            true,
           )}
-        </article>
+        </SectionPanel>
+        <SectionPanel id="insights" value="money" active={insightView}>
+          {" "}
+          {chart(
+            tr(
+              "Received income & recorded expenses",
+              "הכנסות שהתקבלו והוצאות מתועדות",
+            ),
+            [
+              ["income", tr("Income", "הכנסות"), "var(--green)"],
+              ["expenses", tr("Expenses", "הוצאות"), "#ed8791"],
+            ],
+          )}
+          {chart(
+            tr("Recorded savings movement", "תנועת חיסכון מתועדת"),
+            [
+              [
+                "savings",
+                tr("Deposits minus withdrawals", "הפקדות פחות משיכות"),
+                "var(--green)",
+              ],
+            ],
+            true,
+          )}
+        </SectionPanel>
+        <SectionPanel id="insights" value="life" active={insightView}>
+          {" "}
+          {chart(tr("Completed tasks & goals", "משימות ויעדים שהושלמו"), [
+            ["tasks", tr("Tasks", "משימות"), "var(--green)"],
+            ["goals", tr("Goals", "יעדים"), "#8ba7f7"],
+          ])}
+          <article className="panel">
+            <h3>{tr("Goal progress now", "התקדמות היעדים כעת")}</h3>
+            {data.goals.map((g) => (
+              <div key={g.id}>
+                <p>
+                  {g.name} ·{" "}
+                  {Math.min(100, Math.round((goalSaved(g) / g.target) * 100))}%
+                </p>
+                <div className="progress">
+                  <i
+                    style={{
+                      width:
+                        Math.min(100, (goalSaved(g) / g.target) * 100) + "%",
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+            {life.personalGoals.map((g) => (
+              <div key={g.id}>
+                <p>
+                  {g.name} · {Math.round(personalProgress(g))}%
+                </p>
+                <div className="progress">
+                  <i style={{ width: personalProgress(g) + "%" }} />
+                </div>
+              </div>
+            ))}
+            {!data.goals.length && !life.personalGoals.length && (
+              <p className="muted">
+                {tr(
+                  "Add a goal to see its progress.",
+                  "הוסיפו יעד כדי לראות התקדמות.",
+                )}
+              </p>
+            )}
+          </article>
+        </SectionPanel>
       </div>
-      <article className="panel">
-        <SpendingAnalytics
-          transactions={data.transactions}
-          month={month}
-          he={he}
-          money={money}
-        />
-      </article>
+      {insightView === "money" && (
+        <details className="analysis-detail">
+          <summary>
+            {tr("Spending distribution & comparisons", "פילוח הוצאות והשוואות")}
+          </summary>{" "}
+          <article className="panel">
+            <SpendingAnalytics
+              transactions={data.transactions}
+              month={month}
+              he={he}
+              money={money}
+            />
+          </article>
+        </details>
+      )}
       <article className="panel">
         <Sparkles className="positive" />
         <h3>{tr("Your local insights", "התובנות המקומיות שלך")}</h3>

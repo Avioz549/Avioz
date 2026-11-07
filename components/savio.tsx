@@ -1,5 +1,6 @@
 "use client";
 import dynamic from "next/dynamic";
+import { SectionTabs, SectionPanel } from "./section-tabs";
 import { LifeHome, SmartDayScreen } from "./life/home";
 import { CashFlowPanel, SubscriptionsScreen } from "./life/money";
 import { WorkPro } from "./life/work";
@@ -61,9 +62,6 @@ import {
   Download,
   Trash2,
   Pencil,
-  Globe,
-  Sun,
-  Moon,
   ShieldCheck,
   Menu,
   TrendingUp,
@@ -166,6 +164,7 @@ export function Savio() {
     [month, setMonth] = useState(today().slice(0, 7)),
     [search, setSearch] = useState(""),
     [filter, setFilter] = useState("all"),
+    [categoryFilter, setCategoryFilter] = useState("all"),
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false),
     [consent, setConsent] = useState(false),
@@ -176,7 +175,19 @@ export function Savio() {
       "balanced",
     ),
     [backupDue, setBackupDue] = useState(false),
-    [lifeDraft, setLifeDraft] = useState<LifeDraft | null>(null);
+    [lifeDraft, setLifeDraft] = useState<LifeDraft | null>(null),
+    [workView, setWorkView] = useState<
+      "today" | "planning" | "salary" | "settings"
+    >("today"),
+    [workCalendarView, setWorkCalendarView] = useState<"month" | "week">(
+      "month",
+    ),
+    [moneyView, setMoneyView] = useState<
+      "transactions" | "forecast" | "analysis"
+    >("transactions"),
+    [goalView, setGoalView] = useState<"savings" | "personal" | "tools">(
+      "savings",
+    );
   const calendarChanged = useCallback(
     (previousDay: string, nextDay: string) => {
       const previousMonth = previousDay.slice(0, 7),
@@ -705,85 +716,48 @@ export function Savio() {
   }
   const nav = [
     { key: "overview", icon: LayoutDashboard },
-    { key: "transactions", icon: ArrowLeftRight },
     { key: "shifts", icon: Clock3 },
-    { key: "goals", icon: Target },
-    { key: "budgets", icon: ChartPie },
-    { key: "calendar", icon: CalendarDays },
-    { key: "reports", icon: Download },
-    { key: "ai", icon: Sparkles },
-    { key: "challenges", icon: TrendingUp },
+    { key: "transactions", icon: ArrowLeftRight },
     { key: "planner", icon: CalendarDays },
     { key: "smart", icon: Sparkles },
+    { key: "goals", icon: Target },
+    { key: "challenges", icon: TrendingUp },
+    { key: "budgets", icon: ChartPie },
     { key: "subscriptions", icon: ArrowLeftRight },
+    { key: "calendar", icon: CalendarDays },
     { key: "insights", icon: TrendingUp },
+    { key: "reports", icon: Download },
     { key: "recap", icon: ChartPie },
+    { key: "ai", icon: Sparkles },
     { key: "settings", icon: Settings },
   ] as const;
-  const label = (key: Tab) =>
-    key === "planner"
-      ? he
-        ? "תכנון"
-        : "Planner"
-      : key === "smart"
-        ? he
-          ? "היום החכם"
-          : "Smart Day"
-        : key === "subscriptions"
-          ? he
-            ? "מנויים ותשלומים"
-            : "Subscriptions"
-          : key === "insights"
-            ? he
-              ? "תובנות"
-              : "Insights"
-            : key === "recap"
-              ? he
-                ? "סיכום חודשי"
-                : "Monthly recap"
-              : key === "transactions"
-                ? he
-                  ? "כסף"
-                  : "Money"
-                : key === "guide"
-                  ? he
-                    ? "מדריך שימוש"
-                    : "User guide"
-                  : key === "reports"
-                    ? he
-                      ? "דוחות"
-                      : "Reports"
-                    : key === "welcome"
-                      ? he
-                        ? "ברוכים הבאים"
-                        : "Welcome"
-                      : key === "more"
-                        ? he
-                          ? "עוד"
-                          : "More"
-                        : key === "challenges"
-                          ? he
-                            ? "אתגרים"
-                            : "Challenges"
-                          : key === "overview"
-                            ? he
-                              ? "בית"
-                              : "Home"
-                            : key === "shifts"
-                              ? he
-                                ? "עבודה"
-                                : "Work"
-                              : key === "goals"
-                                ? he
-                                  ? "יעדים"
-                                  : "Goals"
-                                : t[key];
+  const tabLabels: Record<Tab, string> = {
+    overview: he ? "בית" : "Home",
+    shifts: he ? "עבודה" : "Work",
+    transactions: he ? "כסף" : "Money",
+    planner: he ? "יומן" : "Planner",
+    more: he ? "עוד" : "More",
+    goals: he ? "יעדים" : "Goals",
+    budgets: he ? "תקציבים" : "Budgets",
+    calendar: he ? "תשלומים ותזכורות" : "Payments & reminders",
+    reports: he ? "דוחות" : "Reports",
+    ai: "SAVIO AI",
+    settings: he ? "הגדרות" : "Settings",
+    challenges: he ? "אתגרים" : "Challenges",
+    welcome: he ? "ברוכים הבאים" : "Welcome",
+    guide: he ? "מדריך שימוש" : "User guide",
+    smart: he ? "היום החכם" : "Smart Day",
+    subscriptions: he ? "מנויים ותשלומים" : "Subscriptions",
+    insights: he ? "תובנות" : "Insights",
+    recap: he ? "סיכום חודשי" : "Monthly recap",
+  };
+  const label = (key: Tab) => tabLabels[key];
   const primaryNav = [
     { key: "overview", icon: LayoutDashboard },
-    { key: "transactions", icon: ArrowLeftRight },
     { key: "shifts", icon: Clock3 },
+    { key: "transactions", icon: ArrowLeftRight },
     { key: "planner", icon: CalendarDays },
-    { key: "goals", icon: Target },
+    { key: "more", icon: Menu },
   ] as const;
   const lifeProps = {
     data,
@@ -951,7 +925,10 @@ export function Savio() {
             </span>
           </div>
           {tab === "goals" && (
-            <>
+            <details className="goal-management">
+              <summary>
+                {he ? "ניהול היעד והפקדות" : "Manage goal & contributions"}
+              </summary>
               {progress >= 100 && !g.completionHistory?.length && (
                 <button
                   className="secondary"
@@ -1078,7 +1055,7 @@ export function Savio() {
                   </div>
                 ))}
               </details>
-            </>
+            </details>
           )}
         </article>
       );
@@ -1166,44 +1143,42 @@ export function Savio() {
           SAVIO<span>●</span>
         </Link>
         <p className="brand-tagline">הכסף שלך. העתיד שלך.</p>
-        <div className="workspace-label">
-          {he ? "המרחב האישי שלך" : "YOUR PERSONAL SPACE"}
-        </div>
         <nav>
           {nav.map(({ key, icon: Icon }) => (
-            <button
-              className={"nav-item " + (tab === key ? "active" : "")}
-              aria-current={tab === key ? "page" : undefined}
-              onClick={() => setTab(key)}
-              key={key}
-            >
-              <Icon size={21} />
-              <span>{label(key)}</span>
-            </button>
+            <Fragment key={key}>
+              {[
+                "overview",
+                "smart",
+                "budgets",
+                "insights",
+                "settings",
+              ].includes(key) && (
+                <p className="sidebar-nav-heading">
+                  {
+                    (
+                      {
+                        overview: he ? "היום שלי" : "Everyday",
+                        smart: he ? "תכנון ויעדים" : "Planning & goals",
+                        budgets: he ? "ניהול הכסף" : "Money management",
+                        insights: he ? "תובנות ודוחות" : "Insights & reports",
+                        settings: he ? "העדפות" : "Preferences",
+                      } as Record<string, string>
+                    )[key]
+                  }
+                </p>
+              )}
+              <button
+                className={"nav-item " + (tab === key ? "active" : "")}
+                aria-current={tab === key ? "page" : undefined}
+                onClick={() => setTab(key)}
+              >
+                <Icon size={20} />
+                <span>{label(key)}</span>
+              </button>
+            </Fragment>
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <div className="side-note">
-            <ShieldCheck size={22} />
-            <strong>
-              {he ? "מקומי. אישי. שלך." : "Local. Personal. Yours."}
-            </strong>
-            <p>
-              {he
-                ? "גיבוי קטן היום, שקט נפשי מחר."
-                : "A small backup today. Peace of mind tomorrow."}
-            </p>
-            <button
-              className="text-button"
-              onClick={() => {
-                exportBackup(data);
-                setBackupDue(false);
-              }}
-            >
-              <Download size={16} />
-              {he ? "גיבוי הנתונים" : "Back up records"}
-            </button>
-          </div>
           <div className="profile">
             <span className="avatar">
               {(data.profile.name || "S").slice(0, 1).toUpperCase()}
@@ -1220,128 +1195,72 @@ export function Savio() {
       <div className="main-wrap">
         <header className="topbar">
           <div className="reference-mobile-bar">
-            <button
-              className="icon-button"
-              aria-label={he ? "עוד ואפשרויות" : "More options"}
-              onClick={() => setTab("more")}
-            >
-              {tab === "overview" ? (
-                <Menu size={20} />
-              ) : (
-                <ArrowRight size={20} />
-              )}
-            </button>
-            {tab === "overview" ? (
-              <strong className="reference-wordmark">SAVIO</strong>
-            ) : (
-              <h1>{label(tab)}</h1>
-            )}
-            <button
-              className="icon-button positive"
-              aria-label={he ? "פעולות מסך" : "Screen actions"}
-              onClick={() =>
-                tab === "planner" || tab === "smart"
-                  ? setLifeDraft({ kind: "task" })
-                  : tab === "shifts"
-                    ? setTab("planner")
-                    : tab === "goals"
-                      ? setEditor({ kind: "goal" })
-                      : tab === "transactions"
-                        ? setEditor({ kind: "transaction" })
-                        : setTab(tab === "settings" ? "more" : "calendar")
-              }
-            >
-              {tab === "settings" ? (
-                <Settings size={20} />
-              ) : tab === "goals" ? (
-                <Plus size={23} />
-              ) : (
-                <CalendarDays size={20} />
-              )}
-            </button>
+            <strong className="reference-wordmark">SAVIO</strong>
+            <span className="header-local">
+              <ShieldCheck size={15} />
+              {he ? "המרחב האישי שלך" : "Your personal space"}
+            </span>
           </div>
           <div className="breadcrumb">
-            {he ? "המרחב שלך" : "My workspace"}
-            <span>/</span>
+            SAVIO <span>/</span>
             <strong>{label(tab)}</strong>
           </div>
-          <div className="top-actions">
-            <span className="security">
-              <ShieldCheck size={14} />
-              {he ? "נשמר במכשיר הזה" : "On-device storage"}
-            </span>
-            <button
-              className="icon-button"
-              aria-label="Change language"
-              onClick={() =>
-                commit({
-                  ...data,
-                  profile: { ...data.profile, language: he ? "en" : "he" },
-                })
-              }
-            >
-              <Globe size={18} />
-              <span className="small">{he ? "EN" : "עב"}</span>
-            </button>
-            <button
-              className="icon-button"
-              aria-label="Toggle theme"
-              onClick={() =>
-                commit({
-                  ...data,
-                  profile: {
-                    ...data.profile,
-                    theme: data.profile.theme === "dark" ? "light" : "dark",
-                  },
-                })
-              }
-            >
-              {data.profile.theme === "dark" ? (
-                <Sun size={18} />
-              ) : (
-                <Moon size={18} />
-              )}
-            </button>
-          </div>
+          <span className="header-local desktop-local">
+            <ShieldCheck size={15} />
+            {he ? "נשמר במכשיר הזה" : "Stored on this device"}
+          </span>
         </header>
         <main id="main-content" className="main-content" tabIndex={-1}>
-          <div className="page-heading">
-            <div>
-              <p className="eyebrow">
-                <span /> {t.greeting}
-              </p>
-              {tab !== "overview" && (
-                <h1>
-                  {label(tab)}
-                  <span className="heading-dot">.</span>
-                </h1>
-              )}
-              <p className="muted">
-                {tab === "overview" ? t.subtitle : "הכסף שלך. העתיד שלך."}
-              </p>
-            </div>
-            <div className="heading-actions">
-              <div className="month-picker">
-                <button
-                  aria-label="Previous month"
-                  onClick={() => changeMonth(-1)}
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <span>{monthLabel}</span>
-                <button aria-label="Next month" onClick={() => changeMonth(1)}>
-                  <ChevronRight size={16} />
-                </button>
+          {tab !== "overview" && (
+            <div className="page-heading">
+              <div>
+                <h1>{label(tab)}</h1>
               </div>
-              <button
-                className="primary"
-                onClick={() => setEditor({ kind: "transaction" })}
-              >
-                <Plus size={17} />
-                {t.add}
-              </button>
+              <div className="heading-actions">
+                {[
+                  "shifts",
+                  "transactions",
+                  "budgets",
+                  "reports",
+                  "insights",
+                  "recap",
+                ].includes(tab) && (
+                  <div className="month-picker">
+                    <button
+                      aria-label={he ? "החודש הקודם" : "Previous month"}
+                      onClick={() => changeMonth(-1)}
+                    >
+                      {he ? (
+                        <ChevronRight size={16} />
+                      ) : (
+                        <ChevronLeft size={16} />
+                      )}
+                    </button>
+                    <span>{monthLabel}</span>
+                    <button
+                      aria-label={he ? "החודש הבא" : "Next month"}
+                      onClick={() => changeMonth(1)}
+                    >
+                      {he ? (
+                        <ChevronLeft size={16} />
+                      ) : (
+                        <ChevronRight size={16} />
+                      )}
+                    </button>
+                  </div>
+                )}
+                {tab === "transactions" && moneyView === "transactions" && (
+                  <button
+                    className="primary"
+                    onClick={() => setEditor({ kind: "transaction" })}
+                  >
+                    <Plus size={17} />
+                    {t.add}
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
+          )}
           <AppUpdate
             he={he}
             busy={busy || Boolean(editor) || Boolean(lifeDraft)}
@@ -1358,6 +1277,31 @@ export function Savio() {
             <LifeHome
               {...lifeProps}
               onQuick={quickAction}
+              periodControl={
+                <div className="month-picker">
+                  <button
+                    aria-label={he ? "החודש הקודם" : "Previous month"}
+                    onClick={() => changeMonth(-1)}
+                  >
+                    {he ? (
+                      <ChevronRight size={16} />
+                    ) : (
+                      <ChevronLeft size={16} />
+                    )}
+                  </button>
+                  <span>{monthLabel}</span>
+                  <button
+                    aria-label={he ? "החודש הבא" : "Next month"}
+                    onClick={() => changeMonth(1)}
+                  >
+                    {he ? (
+                      <ChevronLeft size={16} />
+                    ) : (
+                      <ChevronRight size={16} />
+                    )}
+                  </button>
+                </div>
+              }
               finance={
                 <ReferenceDashboard
                   data={data}
@@ -1383,343 +1327,472 @@ export function Savio() {
           {tab === "subscriptions" && <SubscriptionsScreen {...lifeProps} />}
           {tab === "insights" && <AnalyticsScreen {...lifeProps} />}
           {tab === "recap" && <RecapScreen {...lifeProps} />}
-          {tab === "transactions" && <CashFlowPanel {...lifeProps} />}
           {tab === "transactions" && (
-            <article className="panel">
-              <div
-                className="transaction-segments"
-                role="group"
-                aria-label={he ? "סינון תנועות" : "Transaction type"}
-              >
-                {[
-                  { value: "all", label: he ? "הכל" : "All" },
-                  { value: "income", label: t.incomeType },
-                  { value: "expense", label: t.expense },
-                ].map((option) => (
-                  <button
-                    aria-pressed={filter === option.value}
-                    onClick={() => setFilter(option.value)}
-                    key={option.value}
+            <SectionTabs
+              id="money"
+              label={he ? "מסכי כסף" : "Money sections"}
+              value={moneyView}
+              onChange={setMoneyView}
+              items={[
+                { key: "transactions", label: he ? "תנועות" : "Transactions" },
+                { key: "forecast", label: he ? "תחזית" : "Forecast" },
+                { key: "analysis", label: he ? "ניתוח" : "Analysis" },
+              ]}
+            />
+          )}
+          {tab === "transactions" && (
+            <SectionPanel id="money" value="forecast" active={moneyView}>
+              <CashFlowPanel {...lifeProps} />
+            </SectionPanel>
+          )}
+          {tab === "transactions" && (
+            <SectionPanel id="money" value="transactions" active={moneyView}>
+              {moneyView === "transactions" && (
+                <article className="panel">
+                  <div
+                    className="transaction-segments"
+                    role="group"
+                    aria-label={he ? "סינון תנועות" : "Transaction type"}
                   >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-              <div className="panel-heading">
-                <div className="search-box">
-                  <Search size={17} />
-                  <input
-                    aria-label={t.search}
-                    placeholder={t.search}
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
-                </div>
-                <div className="button-row">
-                  <select
-                    aria-label="Filter type"
-                    value={filter}
-                    onChange={(e) => setFilter(e.target.value)}
-                  >
-                    <option value="all">
-                      {he ? "כל התנועות" : "All transactions"}
-                    </option>
-                    <option value="income">{t.incomeType}</option>
-                    <option value="expense">{t.expense}</option>
-                    {categories.map((c) => (
-                      <option value={c} key={c}>
-                        {categoryLabel(c, he)}
-                      </option>
+                    {[
+                      { value: "all", label: he ? "הכל" : "All" },
+                      { value: "income", label: t.incomeType },
+                      { value: "expense", label: t.expense },
+                    ].map((option) => (
+                      <button
+                        aria-pressed={filter === option.value}
+                        onClick={() => setFilter(option.value)}
+                        key={option.value}
+                      >
+                        {option.label}
+                      </button>
                     ))}
-                  </select>
-                  <button
-                    className="secondary"
-                    onClick={() =>
-                      download(
-                        `savio-${month}.csv`,
-                        csvExport(txs),
-                        "text/csv;charset=utf-8",
+                  </div>
+                  <div className="panel-heading">
+                    <div className="search-box">
+                      <Search size={17} />
+                      <input
+                        aria-label={t.search}
+                        placeholder={t.search}
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                      />
+                    </div>
+                    <div className="button-row">
+                      <select
+                        aria-label={he ? "סינון קטגוריה" : "Filter category"}
+                        value={categoryFilter}
+                        onChange={(e) => setCategoryFilter(e.target.value)}
+                      >
+                        <option value="all">
+                          {he ? "כל הקטגוריות" : "All categories"}
+                        </option>
+
+                        {categories.map((c) => (
+                          <option value={c} key={c}>
+                            {categoryLabel(c, he)}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        className="secondary"
+                        onClick={() =>
+                          download(
+                            `savio-${month}.csv`,
+                            csvExport(txs),
+                            "text/csv;charset=utf-8",
+                          )
+                        }
+                      >
+                        <Download size={16} />
+                        CSV
+                      </button>
+                    </div>
+                  </div>
+                  {transactionList(
+                    [...txs]
+                      .reverse()
+                      .filter(
+                        (x) =>
+                          (filter === "all" || x.kind === filter) &&
+                          (categoryFilter === "all" ||
+                            x.category === categoryFilter) &&
+                          (x.title + " " + x.category)
+                            .toLowerCase()
+                            .includes(search.toLowerCase()),
                       )
-                    }
-                  >
-                    <Download size={16} />
-                    CSV
-                  </button>
-                </div>
-              </div>
-              {transactionList(
-                [...txs]
-                  .reverse()
-                  .filter(
-                    (x) =>
-                      (filter === "all" ||
-                        x.kind === filter ||
-                        x.category === filter) &&
-                      (x.title + " " + x.category)
-                        .toLowerCase()
-                        .includes(search.toLowerCase()),
-                  )
-                  .sort((a, b) => b.date.localeCompare(a.date)),
+                      .sort((a, b) => b.date.localeCompare(a.date)),
+                  )}
+                  <p className="small muted">
+                    {he
+                      ? "עריכת תנועה חוזרת משנה את סדרת התנועות החל מתאריך המקור."
+                      : "Editing a recurring entry changes its series from the original date."}
+                  </p>
+                </article>
               )}
-              <p className="small muted">
-                {he
-                  ? "עריכת תנועה חוזרת משנה את סדרת התנועות החל מתאריך המקור."
-                  : "Editing a recurring entry changes its series from the original date."}
-              </p>
-              <details className="transaction-analytics">
-                <summary>
-                  {he
-                    ? "ניתוח הוצאות והשוואה חודשית"
-                    : "Spending analytics & monthly comparison"}
-                </summary>{" "}
+            </SectionPanel>
+          )}
+          {tab === "transactions" && (
+            <SectionPanel id="money" value="analysis" active={moneyView}>
+              <article className="panel">
+                <h2>{he ? "ניתוח הוצאות" : "Spending analysis"}</h2>
                 <SpendingAnalytics
                   transactions={data.transactions}
                   month={month}
                   he={he}
                   money={money}
                 />
-              </details>
-            </article>
+              </article>
+              <CategoryManager data={data} onSave={commit} busy={busy} />
+            </SectionPanel>
+          )}
+          {tab === "shifts" && (
+            <SectionTabs
+              id="work"
+              label={he ? "מסכי עבודה" : "Work sections"}
+              value={workView}
+              onChange={setWorkView}
+              items={[
+                { key: "today", label: he ? "היום" : "Today" },
+                { key: "planning", label: he ? "תכנון" : "Planning" },
+                { key: "salary", label: he ? "שכר" : "Salary" },
+                { key: "settings", label: he ? "מקומות עבודה" : "Workplaces" },
+              ]}
+            />
           )}
           {tab === "shifts" && (
             <>
-              <ReferenceWork
-                data={data}
-                month={month}
-                now={now}
-                busy={busy}
-                onStart={startShift}
-                onStop={stopShift}
-                onPause={togglePause}
-                onManual={() => setEditor({ kind: "shift" })}
-              />
-              <SalaryOverview data={data} month={month} now={now} />
-              <WorkPro
-                {...lifeProps}
-                onNewShift={(date) => setEditor({ kind: "shift", date })}
-              />
-              <ShiftCalendar
-                data={data}
-                month={month}
-                now={now}
-                onMonth={changeMonth}
-                onAdd={(date) => setEditor({ kind: "shift", date })}
-                onEdit={(value) => setEditor({ kind: "shift", value })}
-              />
-              <div className="section-toolbar">
-                <div>
-                  <h2>{money(pay)}</h2>
-                  <span className="small muted">{t.gross}</span>
-                </div>
-                <div className="button-row">
+              <SectionPanel id="work" value="today" active={workView}>
+                <ReferenceWork
+                  data={data}
+                  month={month}
+                  now={now}
+                  busy={busy}
+                  onStart={startShift}
+                  onStop={stopShift}
+                  onPause={togglePause}
+                  onManual={() => setEditor({ kind: "shift" })}
+                />
+                {!data.workplaces.length && (
                   <button
-                    className="secondary"
+                    className="secondary full"
                     onClick={() => setEditor({ kind: "workplace" })}
                   >
                     <Plus size={16} />
                     {t.workplace}
                   </button>
+                )}
+                <article className="panel spaced">
+                  <h2>{he ? "דוח שעות חודשי" : "Monthly timesheet"}</h2>
+                  <div className="table-scroll">
+                    <table>
+                      <thead>
+                        <tr>
+                          {(he
+                            ? [
+                                "מקום עבודה",
+                                "התחלה",
+                                "סיום",
+                                "שעות בתשלום",
+                                "אומדן ברוטו",
+                                "",
+                              ]
+                            : [
+                                "Workplace",
+                                "Start",
+                                "End",
+                                "Paid hours",
+                                "Gross estimate",
+                                "",
+                              ]
+                          ).map((h) => (
+                            <th key={h}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.shifts
+                          .filter((s) =>
+                            payroll.segments.some(
+                              (p) =>
+                                p.shiftId === s.id && p.date.startsWith(month),
+                            ),
+                          )
+                          .map((s) => {
+                            const w = data.workplaces.find(
+                                (w) => w.id === s.workplaceId,
+                              )!,
+                              p = payroll.byShift[s.id];
+                            return (
+                              <tr key={s.id}>
+                                <td>
+                                  {w.name}
+                                  {s.scheduled && (
+                                    <small>
+                                      {" "}
+                                      · {he ? "מתוכננת" : "Scheduled"}
+                                    </small>
+                                  )}
+                                  {s.notes && (
+                                    <small className="muted">
+                                      {" "}
+                                      · {s.notes}
+                                    </small>
+                                  )}
+                                  {s.premium
+                                    ? he
+                                      ? " · תוספת שכר"
+                                      : " · Premium"
+                                    : ""}
+                                  {s.legacyGross !== undefined && (
+                                    <small className="muted">
+                                      {" "}
+                                      ·{" "}
+                                      {he ? "אומדן מיובא" : "Imported estimate"}
+                                    </small>
+                                  )}
+                                </td>
+                                <td>
+                                  <bdi>
+                                    {new Date(s.start).toLocaleString(
+                                      he ? "he-IL" : "en-GB",
+                                      {
+                                        dateStyle: "short",
+                                        timeStyle: "short",
+                                        hour12: false,
+                                      },
+                                    )}
+                                  </bdi>
+                                </td>
+                                <td>
+                                  <bdi>
+                                    {s.end
+                                      ? new Date(s.end).toLocaleString(
+                                          he ? "he-IL" : "en-GB",
+                                          {
+                                            dateStyle: "short",
+                                            timeStyle: "short",
+                                            hour12: false,
+                                          },
+                                        )
+                                      : he
+                                        ? "בפעילות"
+                                        : "Running"}
+                                  </bdi>
+                                </td>
+                                <td>{p.hours.toFixed(2)}</td>
+                                <td>{money(p.gross)}</td>
+                                <td>
+                                  <button
+                                    className="icon-button"
+                                    aria-label={t.edit}
+                                    onClick={() =>
+                                      setEditor({ kind: "shift", value: s })
+                                    }
+                                  >
+                                    <Pencil size={15} />
+                                  </button>
+                                  <button
+                                    className="icon-button"
+                                    aria-label={t.delete}
+                                    onClick={() => remove("shifts", s.id)}
+                                  >
+                                    <Trash2 size={15} />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="small muted">
+                    {he
+                      ? "כללי השכר לפי ההסכם של כל מקום עבודה. ניתן להגדיר שבת אוטומטית, חג, לילה ושילוב תוספות בהגדרות המתקדמות. החישוב הוא ברוטו משוער ולא נטו."
+                      : "Configure daily, weekly, night, Saturday and holiday policies per workplace. Estimates are gross before deductions, never guaranteed net pay."}
+                  </p>
+                </article>
+              </SectionPanel>
+              <SectionPanel id="work" value="salary" active={workView}>
+                <SalaryOverview data={data} month={month} now={now} />
+                <WorkPro
+                  {...lifeProps}
+                  view="salary"
+                  onNewShift={(date) => setEditor({ kind: "shift", date })}
+                />
+              </SectionPanel>
+              <SectionPanel id="work" value="planning" active={workView}>
+                <SectionTabs
+                  id="work-calendar"
+                  label={he ? "תצוגת תכנון עבודה" : "Work planning view"}
+                  value={workCalendarView}
+                  onChange={setWorkCalendarView}
+                  items={[
+                    { key: "month", label: he ? "חודש" : "Month" },
+                    { key: "week", label: he ? "שבוע" : "Week" },
+                  ]}
+                />
+                <SectionPanel
+                  id="work-calendar"
+                  value="month"
+                  active={workCalendarView}
+                >
+                  <ShiftCalendar
+                    data={data}
+                    month={month}
+                    now={now}
+                    onMonth={changeMonth}
+                    onAdd={(date) => setEditor({ kind: "shift", date })}
+                    onEdit={(value) => setEditor({ kind: "shift", value })}
+                  />
+                </SectionPanel>
+                <SectionPanel
+                  id="work-calendar"
+                  value="week"
+                  active={workCalendarView}
+                >
+                  <WorkPro
+                    {...lifeProps}
+                    view="planning"
+                    onNewShift={(date) => setEditor({ kind: "shift", date })}
+                  />
+                </SectionPanel>
+              </SectionPanel>
+              <SectionPanel id="work" value="settings" active={workView}>
+                <div className="section-toolbar">
+                  <h2>{he ? "מקומות עבודה ושכר" : "Workplaces & pay"}</h2>
                   <button
                     className="primary"
-                    disabled={!data.workplaces.length}
-                    onClick={() => setEditor({ kind: "shift" })}
+                    onClick={() => setEditor({ kind: "workplace" })}
                   >
                     <Plus size={16} />
-                    {t.newShift}
+                    {t.workplace}
                   </button>
                 </div>
-              </div>
-              <details className="workplace-manager">
-                <summary>
-                  {he
-                    ? "מקומות עבודה והגדרות שכר"
-                    : "Workplaces & payroll settings"}
-                </summary>
-                <div className="workplaces">
-                  {data.workplaces.map((w) => (
-                    <div className="workplace" key={w.id}>
-                      <div className="grow">
-                        <strong>{w.name}</strong>
-                        <p>
-                          {money(w.wage)} / {he ? "שעה" : "hour"}
-                        </p>
+                <details className="workplace-manager" open>
+                  <summary>
+                    {he
+                      ? "מקומות עבודה והגדרות שכר"
+                      : "Workplaces & payroll settings"}
+                  </summary>
+                  <div className="workplaces">
+                    {data.workplaces.map((w) => (
+                      <div className="workplace" key={w.id}>
+                        <div className="grow">
+                          <strong>{w.name}</strong>
+                          <p>
+                            {money(w.wage)} / {he ? "שעה" : "hour"}
+                          </p>
+                        </div>
+                        <button
+                          className="icon-button"
+                          aria-label={t.edit}
+                          onClick={() =>
+                            setEditor({ kind: "workplace", value: w })
+                          }
+                        >
+                          <Pencil size={16} />
+                        </button>
+                        <button
+                          className="icon-button"
+                          aria-label={t.delete}
+                          onClick={() => remove("workplaces", w.id)}
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </div>
-                      <button
-                        className="icon-button"
-                        aria-label={t.edit}
-                        onClick={() =>
-                          setEditor({ kind: "workplace", value: w })
-                        }
-                      >
-                        <Pencil size={16} />
-                      </button>
-                      <button
-                        className="icon-button"
-                        aria-label={t.delete}
-                        onClick={() => remove("workplaces", w.id)}
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  ))}
-                  {!data.workplaces.length && (
-                    <p className="muted small">
-                      {he
-                        ? "הוסיפו מקום עבודה כדי להגדיר כללי שכר."
-                        : "Add a workplace to set your payroll rules."}
-                    </p>
-                  )}
-                </div>
-              </details>
-              <article className="panel spaced">
-                <h2>{he ? "דוח שעות חודשי" : "Monthly timesheet"}</h2>
-                <div className="table-scroll">
-                  <table>
-                    <thead>
-                      <tr>
-                        {(he
-                          ? [
-                              "מקום עבודה",
-                              "התחלה",
-                              "סיום",
-                              "שעות בתשלום",
-                              "אומדן ברוטו",
-                              "",
-                            ]
-                          : [
-                              "Workplace",
-                              "Start",
-                              "End",
-                              "Paid hours",
-                              "Gross estimate",
-                              "",
-                            ]
-                        ).map((h) => (
-                          <th key={h}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.shifts
-                        .filter((s) =>
-                          payroll.segments.some(
-                            (p) =>
-                              p.shiftId === s.id && p.date.startsWith(month),
-                          ),
-                        )
-                        .map((s) => {
-                          const w = data.workplaces.find(
-                              (w) => w.id === s.workplaceId,
-                            )!,
-                            p = payroll.byShift[s.id];
-                          return (
-                            <tr key={s.id}>
-                              <td>
-                                {w.name}
-                                {s.scheduled && (
-                                  <small>
-                                    {" "}
-                                    · {he ? "מתוכננת" : "Scheduled"}
-                                  </small>
-                                )}
-                                {s.notes && (
-                                  <small className="muted"> · {s.notes}</small>
-                                )}
-                                {s.premium
-                                  ? he
-                                    ? " · תוספת שכר"
-                                    : " · Premium"
-                                  : ""}
-                                {s.legacyGross !== undefined && (
-                                  <small className="muted">
-                                    {" "}
-                                    · {he ? "אומדן מיובא" : "Imported estimate"}
-                                  </small>
-                                )}
-                              </td>
-                              <td>{new Date(s.start).toLocaleString()}</td>
-                              <td>
-                                {s.end
-                                  ? new Date(s.end).toLocaleString()
-                                  : he
-                                    ? "בפעילות"
-                                    : "Running"}
-                              </td>
-                              <td>{p.hours.toFixed(2)}</td>
-                              <td>{money(p.gross)}</td>
-                              <td>
-                                <button
-                                  className="icon-button"
-                                  aria-label={t.edit}
-                                  onClick={() =>
-                                    setEditor({ kind: "shift", value: s })
-                                  }
-                                >
-                                  <Pencil size={15} />
-                                </button>
-                                <button
-                                  className="icon-button"
-                                  aria-label={t.delete}
-                                  onClick={() => remove("shifts", s.id)}
-                                >
-                                  <Trash2 size={15} />
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                    </tbody>
-                  </table>
-                </div>
-                <p className="small muted">
-                  {he
-                    ? "כללי השכר לפי ההסכם של כל מקום עבודה. ניתן להגדיר שבת אוטומטית, חג, לילה ושילוב תוספות בהגדרות המתקדמות. החישוב הוא ברוטו משוער ולא נטו."
-                    : "Configure daily, weekly, night, Saturday and holiday policies per workplace. Estimates are gross before deductions, never guaranteed net pay."}
-                </p>
-              </article>
+                    ))}
+                    {!data.workplaces.length && (
+                      <p className="muted small">
+                        {he
+                          ? "הוסיפו מקום עבודה כדי להגדיר כללי שכר."
+                          : "Add a workplace to set your payroll rules."}
+                      </p>
+                    )}
+                  </div>
+                </details>
+                <WorkPro
+                  {...lifeProps}
+                  view="settings"
+                  onNewShift={(date) => setEditor({ kind: "shift", date })}
+                />
+              </SectionPanel>
             </>
           )}
           {tab === "goals" && (
-            <>
-              <div className="section-toolbar">
-                <p className="muted">
-                  {he
-                    ? "הפקדות מתועדות אינן יתרת בנק."
-                    : "Recorded contributions are not bank balances."}
-                </p>
-                <div className="button-row">
-                  <select
-                    aria-label="Savings plan"
-                    value={mode}
-                    onChange={(e) => setMode(e.target.value as typeof mode)}
-                  >
-                    <option value="conservative">
+            <SectionTabs
+              id="goals"
+              label={he ? "מסכי יעדים" : "Goal sections"}
+              value={goalView}
+              onChange={setGoalView}
+              items={[
+                { key: "savings", label: he ? "חיסכון" : "Savings" },
+                {
+                  key: "personal",
+                  label: he ? "יעדים אישיים" : "Personal goals",
+                },
+                { key: "tools", label: he ? "כלים" : "Tools" },
+              ]}
+            />
+          )}
+          {tab === "goals" && (
+            <SectionPanel id="goals" value="savings" active={goalView}>
+              {goalView === "savings" && (
+                <>
+                  <div className="section-toolbar">
+                    <p className="muted">
                       {he
-                        ? "שמרנית · 20% מהיתרה"
-                        : "Conservative · 20% surplus"}
-                    </option>
-                    <option value="balanced">
-                      {he ? "מאוזנת · 35% מהיתרה" : "Balanced · 35% surplus"}
-                    </option>
-                    <option value="accelerated">
-                      {he ? "מואצת · 50% מהיתרה" : "Accelerated · 50% surplus"}
-                    </option>
-                  </select>
-                  <button
-                    className="primary"
-                    onClick={() => setEditor({ kind: "goal" })}
-                  >
-                    <Plus size={16} />
-                    {t.newGoal}
-                  </button>
-                </div>
-              </div>
-              <div className="goals-grid">{goalCards()}</div>
-              {!data.goals.length && (
-                <div className="panel">
-                  <Empty title={t.goalTitle} description={t.goalSub} />
-                </div>
+                        ? "הפקדות מתועדות אינן יתרת בנק."
+                        : "Recorded contributions are not bank balances."}
+                    </p>
+                    <div className="button-row">
+                      <select
+                        aria-label="Savings plan"
+                        value={mode}
+                        onChange={(e) => setMode(e.target.value as typeof mode)}
+                      >
+                        <option value="conservative">
+                          {he
+                            ? "שמרנית · 20% מהיתרה"
+                            : "Conservative · 20% surplus"}
+                        </option>
+                        <option value="balanced">
+                          {he
+                            ? "מאוזנת · 35% מהיתרה"
+                            : "Balanced · 35% surplus"}
+                        </option>
+                        <option value="accelerated">
+                          {he
+                            ? "מואצת · 50% מהיתרה"
+                            : "Accelerated · 50% surplus"}
+                        </option>
+                      </select>
+                      <button
+                        className="primary"
+                        onClick={() => setEditor({ kind: "goal" })}
+                      >
+                        <Plus size={16} />
+                        {t.newGoal}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="goals-grid">{goalCards()}</div>
+                  {!data.goals.length && (
+                    <div className="panel">
+                      <Empty title={t.goalTitle} description={t.goalSub} />
+                    </div>
+                  )}
+                </>
               )}
+            </SectionPanel>
+          )}
+          {tab === "goals" && (
+            <SectionPanel id="goals" value="personal" active={goalView}>
+              <PersonalGoalsScreen {...lifeProps} />
+            </SectionPanel>
+          )}
+          {tab === "goals" && (
+            <SectionPanel id="goals" value="tools" active={goalView}>
               <div className="panel spaced">
                 <h2>{he ? "אתגר חיסכון" : "Savings challenge"}</h2>
                 <p className="muted">
@@ -1755,20 +1828,16 @@ export function Savio() {
                         .length,
                     0,
                   ) >= 3
-                    ? "✓ Habit builder achievement unlocked"
-                    : `${data.goals.reduce((n, g) => n + g.contributions.filter((c) => c.kind !== "withdrawal").length, 0)} / 3 contributions`}
+                    ? he
+                      ? "✓ הישג חדש: הרגל חיסכון"
+                      : "✓ Habit builder achievement unlocked"
+                    : `${data.goals.reduce((n, g) => n + g.contributions.filter((c) => c.kind !== "withdrawal").length, 0)} / 3 ${he ? "הפקדות" : "contributions"}`}
                 </p>
               </div>
-            </>
-          )}
-          {tab === "goals" && <PersonalGoalsScreen {...lifeProps} />}
-          {tab === "goals" && (
-            <div className="spaced">
-              <PurchaseCalculator workplaces={data.workplaces} he={he} />
-            </div>
-          )}
-          {tab === "transactions" && (
-            <CategoryManager data={data} onSave={commit} busy={busy} />
+              <div className="spaced">
+                <PurchaseCalculator workplaces={data.workplaces} he={he} />
+              </div>
+            </SectionPanel>
           )}
           {tab === "reports" && (
             <ReportsScreen data={data} month={month} now={now} />
@@ -1878,7 +1947,10 @@ export function Savio() {
                   </button>
                 </form>
               </article>
-              <div>
+              <details className="ai-local-tools">
+                <summary>
+                  {he ? "תובנות וכלים מקומיים" : "Local insights & tools"}
+                </summary>
                 <article className="panel">
                   <Sparkles className="positive" />
                   <h3>{he ? "תובנות מקומיות" : "Local insights"}</h3>
@@ -1905,82 +1977,52 @@ export function Savio() {
                 <div className="spaced">
                   <PurchaseCalculator workplaces={data.workplaces} he={he} />
                 </div>
-              </div>
+              </details>
             </div>
           )}
           {tab === "more" && (
-            <section className="more-grid">
-              {nav
-                .filter((n) =>
-                  [
-                    "smart",
-                    "subscriptions",
-                    "insights",
-                    "recap",
-                    "budgets",
-                    "reports",
-                    "calendar",
-                    "ai",
-                    "challenges",
-                    "settings",
-                  ].includes(n.key),
-                )
-                .map(({ key, icon: Icon }) => (
-                  <button
-                    className="more-card"
-                    onClick={() => setTab(key)}
-                    key={key}
-                  >
-                    <span className="more-icon">
-                      <Icon size={26} />
-                    </span>
-                    <div>
-                      <h2>{label(key)}</h2>
-                      <p>
-                        {key === "smart"
-                          ? he
-                            ? "משימות, תכנון ותובנות ליום שלך"
-                            : "Your priorities, schedule and daily insights"
-                          : key === "subscriptions"
-                            ? he
-                              ? "מנויים ותשלומים חוזרים בשליטה"
-                              : "Subscriptions and recurring payments"
-                            : key === "insights"
-                              ? he
-                                ? "מגמות בעבודה, בכסף וביעדים"
-                                : "Trends across money, work and goals"
-                              : key === "recap"
-                                ? he
-                                  ? "החודש שלך בתמונה אחת"
-                                  : "Your month in one clear picture"
-                                : key === "reports"
-                                  ? he
-                                    ? "דוחות עבודה וכסף וייצוא נתונים"
-                                    : "Work and financial reports and exports"
-                                  : key === "budgets"
-                                    ? he
-                                      ? "מסגרת שמתאימה לחיים שלך"
-                                      : "Make room for what matters"
-                                    : key === "calendar"
-                                      ? he
-                                        ? "כל התשלומים והתזכורות במקום אחד"
-                                        : "Payments and reminders, together"
-                                      : key === "ai"
-                                        ? he
-                                          ? "מחשבות טובות על הכסף שלך"
-                                          : "A thoughtful financial conversation"
-                                        : key === "challenges"
-                                          ? he
-                                            ? "הרגלים קטנים. שינוי גדול."
-                                            : "Small habits. Meaningful progress."
-                                          : he
-                                            ? "העדפות, גיבוי ושחזור"
-                                            : "Preferences, backups and recovery"}
-                      </p>
-                    </div>
-                    <ArrowRight size={19} />
-                  </button>
-                ))}
+            <section className="more-sections">
+              {[
+                {
+                  title: he ? "היום והיעדים שלי" : "My day & goals",
+                  keys: ["smart", "goals", "challenges"],
+                },
+                {
+                  title: he ? "ניהול הכסף" : "Money management",
+                  keys: ["budgets", "subscriptions", "calendar"],
+                },
+                {
+                  title: he ? "תובנות ודוחות" : "Insights & reports",
+                  keys: ["insights", "reports", "recap", "ai"],
+                },
+                {
+                  title: he ? "העדפות ונתונים" : "Preferences & data",
+                  keys: ["settings"],
+                },
+              ].map((group) => (
+                <section className="navigation-group" key={group.title}>
+                  <h2>{group.title}</h2>
+                  <div className="navigation-rows">
+                    {group.keys.map((key) => {
+                      const item = nav.find((n) => n.key === key)!;
+                      const Icon = item.icon;
+                      return (
+                        <button key={key} onClick={() => setTab(item.key)}>
+                          <span className="menu-icon">
+                            <Icon size={20} />
+                          </span>
+                          <span>{label(item.key)}</span>
+                          {he ? (
+                            <ChevronLeft size={18} />
+                          ) : (
+                            <ChevronRight size={18} />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
             </section>
           )}
           {tab === "challenges" && (
@@ -2111,15 +2153,6 @@ export function Savio() {
           </footer>
         </main>
       </div>
-      {tab === "transactions" && (
-        <button
-          className="floating-add"
-          aria-label={t.add}
-          onClick={() => setEditor({ kind: "transaction" })}
-        >
-          <Plus size={27} />
-        </button>
-      )}
       <nav
         className="bottom-nav"
         aria-label={he ? "ניווט ראשי" : "Primary navigation"}
@@ -2127,19 +2160,7 @@ export function Savio() {
         {primaryNav.map(({ key, icon: Icon }) => {
           const selected =
             tab === key ||
-            (key === "overview" &&
-              [
-                "smart",
-                "insights",
-                "recap",
-                "more",
-                "settings",
-                "ai",
-                "challenges",
-              ].includes(tab)) ||
-            (key === "transactions" &&
-              ["subscriptions", "budgets", "reports"].includes(tab)) ||
-            (key === "planner" && tab === "calendar");
+            (key === "more" && !primaryNav.some((item) => item.key === tab));
           return (
             <button
               aria-current={selected ? "page" : undefined}

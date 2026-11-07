@@ -12,7 +12,7 @@ export function PurchaseCalculator({
 }) {
   const [hours, setHours] = useState<number | null>(null);
   return (
-    <article className="panel">
+    <article className="panel purchase-calculator">
       <div className="panel-heading">
         <div>
           <span className="eyebrow">

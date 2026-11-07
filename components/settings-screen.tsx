@@ -1,5 +1,5 @@
 "use client";
-import { themes, type Theme } from "@/lib/themes";
+import { themes } from "@/lib/themes";
 import { useState } from "react";
 import {
   UserRound,
@@ -54,8 +54,21 @@ export function SettingsScreen({
       <Arrow size={16} />
     </button>
   );
+  if (pane === "backup")
+    return (
+      <section className="settings-detail">
+        <button className="secondary" onClick={() => setPane(null)}>
+          {he ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}{" "}
+          {tr("Back to settings", "חזרה להגדרות")}
+        </button>
+        <BackupManager data={data} onSave={onSave} />
+      </section>
+    );
   return (
     <section className="reference-settings">
+      <h2 className="settings-section-title">
+        {tr("Personal preferences", "העדפות אישיות")}
+      </h2>
       <div className="settings-row-group">
         {row(
           tr("Profile & personal details", "פרופיל ופרטים אישיים"),
@@ -70,6 +83,9 @@ export function SettingsScreen({
           setPane("profile"),
         )}
       </div>
+      <h2 className="settings-section-title">
+        {tr("Data & backup", "נתונים וגיבוי")}
+      </h2>
       <div className="settings-row-group">
         {row(
           tr("Export JSON backup", "גיבוי נתונים (JSON)"),
@@ -106,6 +122,9 @@ export function SettingsScreen({
           },
         )}
       </div>
+      <h2 className="settings-section-title">
+        {tr("Appearance & tools", "עיצוב וכלים")}
+      </h2>
       <div className="settings-row-group">
         {row(tr("Notifications", "התראות"), " ", Bell, async () => {
           try {
@@ -153,6 +172,9 @@ export function SettingsScreen({
           onAI,
         )}
       </div>
+      <h2 className="settings-section-title">
+        {tr("About & help", "מידע ועזרה")}
+      </h2>
       <div className="settings-row-group">
         {row(tr("Install on iPhone", "הוספה למסך הבית"), "", Smartphone, () =>
           setPane("install"),
@@ -219,11 +241,9 @@ export function SettingsScreen({
               ? tr("App design", "עיצוב האפליקציה")
               : pane === "profile"
                 ? tr("Your preferences", "ההעדפות שלך")
-                : pane === "backup"
-                  ? tr("Backup & restore", "גיבוי ושחזור")
-                  : pane === "install"
-                    ? tr("Install SAVIO", "התקנת SAVIO")
-                    : tr("About SAVIO", "על SAVIO")
+                : pane === "install"
+                  ? tr("Install SAVIO", "התקנת SAVIO")
+                  : tr("About SAVIO", "על SAVIO")
           }
           onClose={() => setPane(null)}
         >
@@ -283,7 +303,7 @@ export function SettingsScreen({
                       name: String(f.get("name")),
                       currency: f.get("currency") as "ILS",
                       language: f.get("language") as "en",
-                      theme: f.get("theme") as Theme,
+                      theme: data.profile.theme,
                     },
                   })
                 )
@@ -310,15 +330,6 @@ export function SettingsScreen({
                   <option value="en">English</option>
                 </select>
               </Field>
-              <Field label={tr("Appearance", "מראה")}>
-                <select name="theme" defaultValue={data.profile.theme}>
-                  {themes.map((theme) => (
-                    <option key={theme.id} value={theme.id}>
-                      {he ? theme.he : theme.en}
-                    </option>
-                  ))}
-                </select>
-              </Field>
               <p className="small muted">
                 {tr(
                   "Currency changes display units only, not exchange rates.",
@@ -329,8 +340,6 @@ export function SettingsScreen({
                 {tr("Save preferences", "שמירת העדפות")}
               </button>
             </form>
-          ) : pane === "backup" ? (
-            <BackupManager data={data} onSave={onSave} />
           ) : pane === "install" ? (
             <p>
               {tr(

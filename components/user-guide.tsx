@@ -39,8 +39,8 @@ export function UserGuide({
         icon: Clock3,
         title: tr("Track shifts and earnings", "משמרות ושכר מסודרים"),
         body: tr(
-          "Add a workplace and set your agreement’s hourly and overtime rates. Start, pause and stop the timer, or enter shifts manually. Plan future shifts in the calendar. All salary figures are gross estimates.",
-          "הוסיפו מקום עבודה והגדירו שכר וכללים לפי ההסכם. הפעילו, השהו וסיימו משמרת או הזינו ידנית. תכננו משמרות בלוח. כל סכומי השכר הם אומדני ברוטו.",
+          "In Work → Workplaces, add a workplace and set your agreement’s hourly and overtime rates. Start, pause and stop the timer, or enter shifts manually. Plan future shifts in the calendar. All salary figures are gross estimates.",
+          "בעבודה ← מקומות עבודה, הוסיפו מקום עבודה והגדירו שכר וכללים לפי ההסכם. הפעילו, השהו וסיימו משמרת או הזינו ידנית. תכננו משמרות בלוח. כל סכומי השכר הם אומדני ברוטו.",
         ),
       },
       {
@@ -48,7 +48,7 @@ export function UserGuide({
         title: tr("Create savings goals", "הופכים חלומות ליעדים"),
         body: tr(
           "Choose a target, date and saving share. Record contributions and withdrawals. Shift projections use actual completed shifts and your selected saving percentage. No money is transferred. Goals also supports habits, milestones and personal targets. Planner connects your tasks, events and work schedule; Smart Day highlights priorities.",
-          "בחרו יעד, תאריך ואחוז חיסכון. תעדו הפקדות ומשיכות. תחזיות לפי משמרות מבוססות על עבודה שתועדה ועל האחוז שבחרתם. האפליקציה אינה מעבירה כסף. ביעדים אפשר גם לעקוב אחרי הרגלים ואבני דרך. בתכנון תמצאו משימות, אירועים ומשמרות; היום החכם מציג סדרי עדיפויות.",
+          "בחרו יעד, תאריך ואחוז חיסכון. תעדו הפקדות ומשיכות. תחזיות לפי משמרות מבוססות על עבודה שתועדה ועל האחוז שבחרתם. האפליקציה אינה מעבירה כסף. ביעדים אפשר גם לעקוב אחרי הרגלים ואבני דרך. ביומן תמצאו משימות, אירועים ומשמרות; היום החכם מציג סדרי עדיפויות.",
         ),
       },
       {

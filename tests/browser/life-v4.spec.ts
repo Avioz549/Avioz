@@ -59,9 +59,7 @@ async function open(page: Page, tab: string) {
   if (tab === "planner")
     await expect(page.locator(".life-planner")).toBeVisible();
   if (tab === "insights")
-    await expect(
-      page.getByText("SAVIO INSIGHTS", { exact: true }),
-    ).toBeVisible();
+    await expect(page.locator(".insights-screen")).toBeVisible();
   if (tab === "recap") await expect(page.locator(".life-recap")).toBeVisible();
 }
 async function stored(page: Page) {
@@ -159,6 +157,7 @@ test("planner recurring tasks, daily completion, event CRUD and original shift e
   await f.getByLabel("Event title", { exact: true }).fill("Dental appointment");
   await save(page);
   await page.getByRole("button", { name: "Today", exact: true }).click();
+  await page.locator(".planner-filter-disclosure > summary").click();
   await page
     .getByLabel("Calendar filter", { exact: true })
     .selectOption("shift");
@@ -194,6 +193,7 @@ test("personal/habit goals, milestones, related tasks and completion history per
   ];
   await seed(page, d);
   await open(page, "goals");
+  await page.getByRole("tab", { name: "Personal goals", exact: true }).click();
   await page
     .getByRole("button", { name: "New personal goal", exact: true })
     .click();
@@ -258,6 +258,7 @@ test("personal/habit goals, milestones, related tasks and completion history per
   expect(before.life?.tasks[0].goalId).toBe(before.life?.personalGoals[0].id);
   expect(before.goals).toEqual(d.goals);
   await open(page, "goals");
+  await page.getByRole("tab", { name: "Personal goals", exact: true }).click();
   page.once("dialog", (dialog) => dialog.accept());
   await page
     .getByRole("button", { name: "Delete goal Read two days", exact: true })
@@ -273,6 +274,7 @@ test("subscription confirmation updates cash forecast exactly once and pausing/d
 }) => {
   await seed(page);
   await open(page, "subscriptions");
+  await page.locator(".forecast-disclosure > summary").click();
   await page
     .getByRole("button", { name: "Add subscription", exact: true })
     .click();
@@ -322,6 +324,7 @@ test("work targets, weekly plan and payslip comparisons use saved shifts and do 
   ];
   await seed(page, d);
   await open(page, "shifts");
+  await page.getByRole("tab", { name: "Salary", exact: true }).click();
   await page
     .getByRole("button", { name: "Set work targets", exact: true })
     .click();
@@ -353,6 +356,8 @@ test("work targets, weekly plan and payslip comparisons use saved shifts and do 
   await expect(f.getByRole("alert")).toBeVisible();
   await f.getByRole("button", { name: "Close", exact: true }).click();
   expect((await stored(page)).data.life?.payslips).toHaveLength(1);
+  await page.getByRole("tab", { name: "Planning", exact: true }).click();
+  await page.getByRole("tab", { name: "Week", exact: true }).click();
   await page.getByLabel("Work week date", { exact: true }).fill("2026-11-20");
   await page
     .getByRole("button", { name: "Plan shift on 2026-11-20", exact: true })
@@ -365,6 +370,7 @@ test("work targets, weekly plan and payslip comparisons use saved shifts and do 
   await save(page);
   expect((await stored(page)).data.shifts).toHaveLength(2);
   await page.reload();
+  await page.getByRole("tab", { name: "Salary", exact: true }).click();
   await expect(page.locator(".work-pro")).toContainText("1,500");
 });
 test("dashboard widget order, visibility, quick actions and opening preference survive reload", async ({
@@ -462,7 +468,7 @@ test("recap export/share are explicit, analytics show real activity and health i
     /SAVIO 4.0/,
   );
   await open(page, "insights");
-  await expect(page.locator(".life-chart")).toHaveCount(5);
+  await expect(page.locator(".life-chart")).toHaveCount(2);
   expect(errors).toEqual([]);
   const health = await request.get("/api/health");
   expect((await health.json()).version).toBe("4.0.0");
@@ -495,7 +501,7 @@ test("all new modules load offline, including previously unvisited lazy code and
   await page.reload();
   await expect(page.locator(".life-planner")).toContainText("Offline task");
   await open(page, "insights");
-  await expect(page.locator(".life-chart")).toHaveCount(5);
+  await expect(page.locator(".life-chart")).toHaveCount(2);
   await open(page, "recap");
   await expect(page.locator(".life-recap")).toBeVisible();
   await context.setOffline(false);
@@ -827,6 +833,7 @@ test("foreground planner notifications require opt-in, omit private details and 
       () => (window as unknown as { __qaAlerts: unknown[] }).__qaAlerts.length,
     ),
   ).toBe(0);
+  await page.locator(".planner-reminders > summary").click();
   await page
     .getByRole("button", { name: "Enable planner reminders", exact: true })
     .click();
@@ -876,6 +883,7 @@ test("waiting updates require an explicit refresh and cannot interrupt an open e
       get: () => ({}),
     });
     navigator.serviceWorker.getRegistration = async () => registration;
+    navigator.serviceWorker.register = async () => registration;
   });
   await open(page, "overview");
   const refresh = page.getByRole("button", {

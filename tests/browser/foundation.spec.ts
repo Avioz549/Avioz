@@ -127,6 +127,7 @@ test("three one-minute shifts reconcile work totals and both CSV reports without
   await open(page, "shifts");
   await expect(page.locator(".work-month-summary")).toContainText("2.49");
   await expect(page.locator("tbody")).toContainText("0.83");
+  await page.getByRole("tab", { name: "Salary", exact: true }).click();
   await expect(page.getByRole("note")).toContainText("Rounding policy");
   await open(page, "reports");
   const first = page.waitForEvent("download");
@@ -419,7 +420,7 @@ test("ordinary editors preserve unknown root, profile, workplace, policy, shift,
   await page.clock.install({ time: new Date("2026-11-06T12:00:00Z") });
   await seed(page, d);
   await open(page, "shifts");
-  await page.locator(".workplace-manager > summary").click();
+  await page.getByRole("tab", { name: "Workplaces", exact: true }).click();
   await page
     .locator(".workplace-manager")
     .getByRole("button", { name: "Edit", exact: true })
@@ -434,6 +435,7 @@ test("ordinary editors preserve unknown root, profile, workplace, policy, shift,
   await f.getByLabel("Name", { exact: true }).fill("Renamed workplace");
   await f.getByRole("button", { name: "Save", exact: true }).click();
   await expect(f).not.toBeVisible();
+  await page.getByRole("tab", { name: "Today", exact: true }).click();
   await page
     .locator("tbody")
     .getByRole("button", { name: "Edit", exact: true })
@@ -447,6 +449,7 @@ test("ordinary editors preserve unknown root, profile, workplace, policy, shift,
   await f.getByLabel("Description").fill("Updated transaction");
   await f.getByRole("button", { name: "Save", exact: true }).click();
   await open(page, "goals");
+  await page.locator(".goal-management > summary").click();
   await page.locator(".goal-plan-details > summary").click();
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await f.getByLabel("Name", { exact: true }).fill("Updated goal");

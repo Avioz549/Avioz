@@ -33,7 +33,7 @@ export function PlannerScreen({
     life = lifeOf(data),
     today = dateKey(now),
     [selected, setSelected] = useState(today),
-    [view, setView] = useState<"day" | "week" | "month">("week"),
+    [view, setView] = useState<"day" | "week" | "month">("day"),
     [filter, setFilter] = useState("all"),
     [category, setCategory] = useState("all"),
     [search, setSearch] = useState(""),
@@ -252,55 +252,58 @@ export function PlannerScreen({
           {tr("Today", "היום")}
         </button>
       </div>
-      <div className="life-filters">
-        <input
-          aria-label={tr("Search planner", "חיפוש בתכנון")}
-          placeholder={tr("Search your plans…", "חיפוש בתכניות שלך…")}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <select
-          aria-label={tr("Calendar filter", "סינון לוח")}
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-        >
-          {[
-            "all",
-            "task",
-            "event",
-            "shift",
-            "reminder",
-            "payment",
-            "subscription",
-          ].map((f) => (
-            <option key={f} value={f}>
-              {he
-                ? (
-                    {
-                      all: "הכול",
-                      task: "משימות",
-                      event: "אירועים",
-                      shift: "משמרות",
-                      reminder: "תזכורות",
-                      payment: "תשלומים",
-                      subscription: "מנויים",
-                    } as Record<string, string>
-                  )[f]
-                : f}
-            </option>
-          ))}
-        </select>
-        <select
-          aria-label={tr("Planner category", "קטגוריית תכנון")}
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-        >
-          <option value="all">{tr("All categories", "כל הקטגוריות")}</option>
-          {categories.map((c) => (
-            <option key={c}>{c}</option>
-          ))}
-        </select>
-      </div>
+      <details className="planner-filter-disclosure">
+        <summary>{tr("Search & filters", "חיפוש וסינון")}</summary>{" "}
+        <div className="life-filters">
+          <input
+            aria-label={tr("Search planner", "חיפוש בתכנון")}
+            placeholder={tr("Search your plans…", "חיפוש בתכניות שלך…")}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <select
+            aria-label={tr("Calendar filter", "סינון לוח")}
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+          >
+            {[
+              "all",
+              "task",
+              "event",
+              "shift",
+              "reminder",
+              "payment",
+              "subscription",
+            ].map((f) => (
+              <option key={f} value={f}>
+                {he
+                  ? (
+                      {
+                        all: "הכול",
+                        task: "משימות",
+                        event: "אירועים",
+                        shift: "משמרות",
+                        reminder: "תזכורות",
+                        payment: "תשלומים",
+                        subscription: "מנויים",
+                      } as Record<string, string>
+                    )[f]
+                  : f}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label={tr("Planner category", "קטגוריית תכנון")}
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+          >
+            <option value="all">{tr("All categories", "כל הקטגוריות")}</option>
+            {categories.map((c) => (
+              <option key={c}>{c}</option>
+            ))}
+          </select>
+        </div>
+      </details>
       {overdue > 0 && (
         <p className="notice">
           {he
@@ -364,53 +367,57 @@ export function PlannerScreen({
           </section>
         ))}
       </div>
-      <article className="panel">
-        <h3>{tr("Planner reminders", "תזכורות לתכנון")}</h3>
-        <p className="small muted">
-          {tr(
-            "For tasks and events with a time: a reminder within 30 minutes while SAVIO is open. No guaranteed background delivery.",
-            "למשימות ואירועים עם שעה: תזכורת בטווח 30 דקות כשהאפליקציה פתוחה. אין מסירה מובטחת ברקע.",
-          )}
-        </p>
-        <button
-          className="secondary"
-          disabled={busy}
-          onClick={async () => {
-            if (!life.preferences.plannerReminders) {
-              if (!("Notification" in window)) {
-                setNotice(
-                  tr("Notifications are unavailable.", "התראות אינן זמינות."),
-                );
-                return;
+      <details className="planner-reminders">
+        <summary>{tr("Planner reminders", "תזכורות לתכנון")}</summary>{" "}
+        <article className="panel">
+          <h3>{tr("Planner reminders", "תזכורות לתכנון")}</h3>
+          <p className="small muted">
+            {tr(
+              "For tasks and events with a time: a reminder within 30 minutes while SAVIO is open. No guaranteed background delivery.",
+              "למשימות ואירועים עם שעה: תזכורת בטווח 30 דקות כשהאפליקציה פתוחה. אין מסירה מובטחת ברקע.",
+            )}
+          </p>
+          <button
+            className="secondary"
+            disabled={busy}
+            onClick={async () => {
+              if (!life.preferences.plannerReminders) {
+                if (!("Notification" in window)) {
+                  setNotice(
+                    tr("Notifications are unavailable.", "התראות אינן זמינות."),
+                  );
+                  return;
+                }
+                if ((await Notification.requestPermission()) !== "granted") {
+                  setNotice(
+                    tr(
+                      "Notification permission was not granted.",
+                      "לא ניתן אישור להתראות.",
+                    ),
+                  );
+                  return;
+                }
               }
-              if ((await Notification.requestPermission()) !== "granted") {
-                setNotice(
-                  tr(
-                    "Notification permission was not granted.",
-                    "לא ניתן אישור להתראות.",
-                  ),
-                );
-                return;
-              }
-            }
-            void onSave({
-              ...data,
-              life: {
-                ...life,
-                preferences: {
-                  ...life.preferences,
-                  plannerReminders: !life.preferences.plannerReminders,
+              void onSave({
+                ...data,
+                life: {
+                  ...life,
+                  preferences: {
+                    ...life.preferences,
+                    plannerReminders: !life.preferences.plannerReminders,
+                  },
                 },
-              },
-            });
-          }}
-        >
-          {life.preferences.plannerReminders
-            ? tr("Disable planner reminders", "כיבוי תזכורות תכנון")
-            : tr("Enable planner reminders", "הפעלת תזכורות תכנון")}
-        </button>
-        {notice && <p role="status">{notice}</p>}
-      </article>
+              });
+            }}
+          >
+            {life.preferences.plannerReminders
+              ? tr("Disable planner reminders", "כיבוי תזכורות תכנון")
+              : tr("Enable planner reminders", "הפעלת תזכורות תכנון")}
+          </button>
+          {notice && <p role="status">{notice}</p>}
+        </article>
+      </details>
+
       <p className="small muted">
         {tr(
           "Shifts, payments and reminders come from their original records. Editing a repeating task or event updates its series. Times follow this device.",

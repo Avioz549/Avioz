@@ -1,0 +1,799 @@
+/* Shared SAVIO interaction and layout system. Themes supply colors only. */
+:root {
+  --ui-gap: 16px;
+  --ui-radius: 20px;
+  --ui-pad: 20px;
+  --ui-control: 12px;
+}
+[hidden] {
+  display: none !important;
+}
+.savio-v4 .main-wrap {
+  min-width: 0;
+}
+.savio-v4 .main-content {
+  padding: 24px;
+}
+.savio-v4
+  :is(
+    .panel,
+    .salary-overview,
+    .life-payslip,
+    .recap-hero,
+    .goal-card,
+    .budget-category-card
+  ) {
+  border-radius: var(--ui-radius);
+  padding: var(--ui-pad);
+  box-shadow: 0 4px 16px #0000000d;
+}
+.savio-v4 .panel {
+  margin-block: 0;
+}
+.savio-v4 :is(h1, h2, h3, p) {
+  overflow-wrap: anywhere;
+}
+.savio-v4 h1 {
+  font-size: 28px;
+  line-height: 1.3;
+  letter-spacing: -0.5px;
+}
+.savio-v4 h2 {
+  font-size: 20px;
+  line-height: 1.45;
+  letter-spacing: -0.2px;
+}
+.savio-v4 h3 {
+  font-size: 17px;
+  line-height: 1.45;
+}
+.savio-v4 p {
+  line-height: 1.65;
+}
+.savio-v4 :is(.primary, .secondary) {
+  min-height: 44px;
+  border-radius: var(--ui-control);
+  padding: 10px 16px;
+  font-size: 15px;
+}
+.savio-v4 :is(input, select, textarea) {
+  min-height: 48px;
+  font-size: 16px;
+  border-radius: var(--ui-control);
+  max-width: 100%;
+}
+.savio-v4 :is(button, a, input, select, textarea, summary):focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 3px;
+}
+.savio-v4 .page-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 20px;
+}
+.savio-v4 .page-heading > div:first-child {
+  display: block;
+}
+.savio-v4 .page-heading h1 {
+  margin: 0;
+}
+.savio-v4 .page-heading .heading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.savio-v4 .heading-actions > .primary {
+  display: inline-flex;
+}
+.savio-v4 .heading-actions:empty {
+  display: none;
+}
+.savio-v4 .month-picker {
+  width: auto;
+  min-height: 44px;
+  height: auto;
+  border-radius: 12px;
+  background: var(--panel);
+  border-color: var(--line);
+  font-size: 14px;
+}
+.savio-v4 .month-picker button {
+  min-width: 44px;
+  min-height: 44px;
+}
+.savio-v4 .header-local {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.savio-v4 .breadcrumb {
+  font-size: 14px;
+}
+.savio-v4 .section-tabs {
+  display: flex;
+  padding: 4px;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel-soft);
+  margin-bottom: 20px;
+  width: 100%;
+}
+.savio-v4 .section-tabs > button {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px;
+  font-size: 14px;
+  line-height: 1.3;
+  border-radius: 10px;
+  color: var(--muted);
+  white-space: normal;
+  overflow-wrap: normal;
+}
+.savio-v4 .section-tabs > button[aria-selected="true"] {
+  color: var(--text);
+  background: var(--panel);
+  box-shadow: 0 1px 5px #00000018;
+  font-weight: 650;
+}
+.savio-v4 .section-panel:not([hidden]) {
+  display: grid;
+  gap: var(--ui-gap);
+  min-width: 0;
+}
+.savio-v4 .section-panel > .section-tabs {
+  margin-bottom: 0;
+}
+.savio-v4 .section-panel .work-pro {
+  display: grid;
+  gap: var(--ui-gap);
+}
+.savio-v4 .work-pro > .panel {
+  margin: 0;
+}
+.savio-v4 .section-panel .section-toolbar {
+  margin: 0;
+}
+.savio-v4 .reference-work {
+  margin: 0;
+}
+.savio-v4 .work-timer-card {
+  padding: 24px;
+  border-radius: var(--ui-radius);
+}
+.savio-v4 .work-timer-card .timer-display {
+  font-size: 32px;
+}
+.savio-v4 :is(.suite-stats, .life-grid-two, .life-recap-grid) {
+  gap: 12px;
+}
+.savio-v4 .suite-stats > div {
+  min-height: 88px;
+  padding: 16px;
+  border-radius: 14px;
+}
+.savio-v4 .suite-stats strong {
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+.savio-v4 .suite-stats span {
+  font-size: 14px;
+}
+.savio-v4 .life-section-head {
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+.savio-v4 .life-section-head h2 {
+  font-size: 21px;
+  margin: 4px 0;
+}
+.savio-v4 .life-section-head .eyebrow {
+  display: none;
+}
+.savio-v4 .life-section-head > .button-row {
+  gap: 8px;
+}
+.savio-v4 .section-panel .life-grid-two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.savio-v4 .screen-insights {
+  min-width: 0;
+}
+.savio-v4 .life-grid-two > .section-panel {
+  grid-column: 1/-1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.savio-v4 .life-chart {
+  min-width: 0;
+  margin: 0;
+}
+.savio-v4 .life-chart h3 {
+  margin: 0 0 16px;
+}
+.savio-v4
+  :is(
+    .analysis-detail,
+    .forecast-disclosure,
+    .planner-filter-disclosure,
+    .planner-reminders,
+    .goal-management
+  ) {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0 16px;
+  background: var(--panel);
+}
+.savio-v4
+  :is(
+    .analysis-detail,
+    .forecast-disclosure,
+    .planner-filter-disclosure,
+    .planner-reminders,
+    .goal-management
+  )
+  > summary {
+  min-height: 48px;
+  padding: 12px 0;
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+}
+.savio-v4
+  :is(
+    .analysis-detail,
+    .forecast-disclosure,
+    .planner-filter-disclosure,
+    .planner-reminders,
+    .goal-management
+  )[open] {
+  padding-bottom: 16px;
+}
+.savio-v4 .planner-filter-disclosure .life-filters {
+  margin: 0;
+}
+.savio-v4 .planner-reminders > .panel {
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+}
+.savio-v4 .life-planner {
+  display: grid;
+  gap: 16px;
+}
+.savio-v4 .life-planner > .life-section-head {
+  margin: 0;
+}
+.savio-v4 .life-planner > .life-segments {
+  margin: 0;
+}
+.savio-v4 .life-planner > .life-section-head h2 {
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.savio-v4 .life-agenda {
+  gap: 12px;
+}
+.savio-v4 .life-agenda .panel {
+  padding: 16px;
+}
+.savio-v4 .life-entry-body {
+  text-align: start;
+}
+.savio-v4 .life-entry-body strong {
+  font-size: 16px;
+}
+.savio-v4 .life-entry-body small {
+  font-size: 13px;
+}
+.savio-v4 .smart-day,
+.savio-v4 .life-recap {
+  display: grid;
+  gap: 16px;
+}
+.savio-v4 .smart-day .panel {
+  margin: 0;
+}
+.savio-v4 .smart-day h2 {
+  font-size: 22px;
+}
+.savio-v4 .recap-hero {
+  min-height: 0;
+  padding: 24px;
+  text-align: start;
+}
+.savio-v4 .recap-hero h2 {
+  font-size: 28px;
+  margin: 8px 0;
+}
+.savio-v4 .recap-hero .recap-orb {
+  width: 56px;
+  height: 56px;
+  margin: 16px 0;
+}
+.savio-v4 .recap-hero svg {
+  width: 28px;
+  height: 28px;
+}
+.savio-v4 .life-recap-grid > .panel {
+  min-height: 104px;
+}
+.savio-v4 .goal-management {
+  margin-top: 16px;
+  padding-inline: 12px;
+}
+.savio-v4 .goal-art {
+  max-width: 64px;
+  max-height: 56px;
+}
+.savio-v4 .goal-card .goal-art svg {
+  width: 24px;
+  height: 24px;
+}
+.savio-v4 .life-goal-card .goal-ring {
+  width: 64px;
+  height: 64px;
+}
+.savio-v4 .more-sections {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+.savio-v4 .navigation-group h2 {
+  font-size: 15px;
+  color: var(--muted);
+  font-weight: 550;
+  margin: 0 4px 10px;
+}
+.savio-v4 .navigation-rows {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  overflow: hidden;
+  background: var(--panel);
+}
+.savio-v4 .navigation-rows > button {
+  width: 100%;
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+  text-align: start;
+}
+.savio-v4 .navigation-rows > button:last-child {
+  border-bottom: 0;
+}
+.savio-v4 .navigation-rows > button > span:nth-child(2) {
+  flex: 1;
+  font-size: 17px;
+}
+.savio-v4 .menu-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: var(--panel-soft);
+  color: var(--green);
+}
+.savio-v4 .navigation-rows > button > svg {
+  color: var(--muted);
+}
+.savio-v4 .settings-section-title {
+  font-size: 14px;
+  color: var(--muted);
+  font-weight: 550;
+  margin: 24px 4px 10px;
+}
+.savio-v4 .settings-section-title:first-child {
+  margin-top: 0;
+}
+.savio-v4 .settings-row {
+  min-height: 60px;
+}
+.savio-v4 .settings-row-group {
+  margin-bottom: 0;
+  border-radius: 18px;
+}
+.savio-v4 .settings-detail {
+  display: grid;
+  gap: 20px;
+}
+.savio-v4 .settings-detail > .secondary {
+  justify-self: start;
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+.savio-v4 .backup-actions {
+  gap: 12px;
+}
+.savio-v4 .backup-actions button {
+  min-height: 48px;
+}
+.savio-v4 .theme-option {
+  min-height: 84px;
+  border-radius: 16px;
+}
+.savio-v4 .theme-preview {
+  width: 88px;
+  height: 56px;
+}
+.savio-v4 dialog {
+  max-height: calc(
+    100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)
+  );
+  padding: 20px;
+  border-radius: 24px;
+  background: var(--panel);
+  border-color: var(--line);
+}
+.savio-v4 .modal-head {
+  position: sticky;
+  top: -20px;
+  background: var(--panel);
+  padding-block: 12px;
+  z-index: 2;
+  border-bottom: 1px solid var(--line);
+}
+.savio-v4 .modal-head h2 {
+  font-size: 21px;
+}
+.savio-v4 .field {
+  gap: 8px;
+  margin-block: 16px;
+}
+.savio-v4 .field > span {
+  font-size: 15px;
+}
+.savio-v4 .form-grid {
+  gap: 0 16px;
+}
+.savio-v4 .main-content > footer {
+  display: none;
+}
+.savio-v4 .backup-reminder {
+  margin-top: 24px;
+  padding: 12px 16px;
+  border-radius: 16px;
+}
+.savio-v4 .table-scroll bdi {
+  font-variant-numeric: tabular-nums;
+}
+/* The photograph is confined to the home greeting header, not the dashboard. */
+:root[data-theme="ocean"] .screen-overview .main-content::before {
+  content: none;
+  background-image: none;
+}
+:root[data-theme="ocean"] .screen-overview .life-home-intro {
+  background-image:
+    linear-gradient(110deg, #061426a8, #06142655), url("/ocean-sunset.webp");
+  background-size: cover;
+  background-position: center 48%;
+  padding: 24px;
+  border: 1px solid #71c8ed33;
+  border-radius: 24px;
+  min-height: 176px;
+  margin: 0 0 20px;
+}
+.savio-v4 .life-home-intro {
+  padding: 16px 0;
+  margin: 0 0 20px;
+}
+.savio-v4 .life-home-intro h1 {
+  font-size: clamp(24px, 4vw, 32px);
+}
+.savio-v4 .life-home-intro .muted {
+  font-size: 14px;
+  margin-bottom: 0;
+}
+.savio-v4 .home-period {
+  margin-bottom: 12px;
+}
+.savio-v4 .home-period .month-picker {
+  width: 100%;
+  justify-content: space-between;
+}
+.savio-v4 .ocean-next-shift {
+  padding: 20px;
+}
+.savio-v4 .ocean-feature-icon {
+  width: 40px;
+  height: 44px;
+  border-radius: 12px;
+}
+.savio-v4 .ocean-feature-icon svg {
+  width: 23px;
+  height: 23px;
+}
+.savio-v4 .life-home .panel {
+  border-radius: 20px;
+}
+.savio-v4 .ocean-next-shift h2 {
+  font-size: 20px;
+}
+.savio-v4 .ocean-summary-cards > :is(article, button) {
+  padding: 18px;
+  border-radius: 20px;
+}
+.savio-v4 .ocean-summary-cards strong {
+  font-size: clamp(22px, 5.6vw, 28px);
+}
+.savio-v4 .ocean-actions-section {
+  margin-top: 24px;
+}
+.savio-v4
+  .life-home
+  :is(.panel, .ocean-summary-cards > article, .ocean-summary-cards > button) {
+  box-shadow: none;
+}
+:root[data-theme="ocean"]
+  .life-home
+  :is(.panel, .ocean-summary-cards > article, .ocean-summary-cards > button) {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: linear-gradient(125deg, #102d46, var(--panel));
+  border-color: var(--line);
+}
+@media (max-width: 900px) {
+  .savio-v4 .main-content {
+    padding: 20px 16px calc(104px + env(safe-area-inset-bottom));
+    max-width: 680px;
+  }
+  .savio-v4 .reference-mobile-bar {
+    justify-content: space-between;
+    padding-inline: 16px;
+  }
+  .savio-v4 .reference-wordmark {
+    font-size: 20px;
+    letter-spacing: 3px;
+  }
+  .savio-v4 .desktop-local {
+    display: none;
+  }
+  .savio-v4 .page-heading {
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .savio-v4 .page-heading > div:first-child {
+    display: block;
+  }
+  .savio-v4 .page-heading h1 {
+    display: block;
+    font-size: 28px;
+  }
+  .savio-v4 .heading-actions {
+    width: 100%;
+  }
+  .savio-v4 .heading-actions > .primary {
+    display: inline-flex;
+    flex: 1;
+    justify-content: center;
+  }
+  .savio-v4 .heading-actions > .month-picker {
+    flex: 1;
+    min-width: 180px;
+  }
+  .savio-v4 .more-sections {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .savio-v4 .life-grid-two,
+  .savio-v4 .life-grid-two > .section-panel,
+  .savio-v4 .section-panel .life-grid-two {
+    grid-template-columns: 1fr;
+  }
+  .savio-v4 .section-tabs {
+    margin-bottom: 16px;
+  }
+  .savio-v4 .life-section-head {
+    flex-direction: column;
+  }
+  .savio-v4 .life-section-head > .button-row {
+    width: 100%;
+  }
+  .savio-v4 .life-section-head > .button-row > button {
+    flex: 1;
+    justify-content: center;
+  }
+  .savio-v4 .ocean-tasks .panel-heading {
+    flex-wrap: wrap;
+  }
+  .savio-v4 .life-calendar-toolbar {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
+    gap: 8px;
+  }
+  .savio-v4 .life-calendar-toolbar > .secondary {
+    grid-column: 1/-1;
+    justify-self: center;
+  }
+  .savio-v4 .life-calendar-toolbar input {
+    min-width: 0;
+    width: 100%;
+  }
+  .savio-v4 .life-filters {
+    grid-template-columns: 1fr;
+  }
+  .savio-v4 .life-planner .life-section-head h2 {
+    margin: 0;
+  }
+  .savio-v4 .life-planner .life-section-head .button-row {
+    margin: 0;
+  }
+  .savio-v4 .life-planner .life-agenda-day {
+    min-height: 0;
+  }
+  .savio-v4 .bottom-nav {
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+  .savio-v4 .bottom-nav button {
+    min-height: 56px;
+    font-size: 12px;
+  }
+  .savio-v4 .bottom-nav button svg {
+    width: 22px;
+    height: 22px;
+  }
+}
+@media (max-width: 360px) {
+  .savio-v4 .main-content {
+    padding-inline: 12px;
+  }
+  .savio-v4 .section-tabs > button {
+    padding: 8px 4px;
+    font-size: 13px;
+  }
+  .savio-v4 .life-home .panel {
+    padding: 16px;
+  }
+  :root[data-theme="ocean"] .screen-overview .life-home-intro {
+    padding: 20px;
+  }
+  .savio-v4 .ocean-summary-cards > :is(article, button) {
+    padding: 16px 12px;
+  }
+  .savio-v4 .suite-stats strong {
+    font-size: 20px;
+  }
+}
+.approved-app.savio-v4:not(.screen-overview) .page-heading {
+  display: flex;
+}
+.savio-v4 button {
+  min-height: 44px;
+}
+.savio-v4 .icon-button {
+  min-width: 44px;
+}
+.savio-v4 .recap-hero .recap-orbit {
+  width: 56px;
+  height: 56px;
+  margin: 16px 0;
+}
+.savio-v4 .ocean-cash-line > div {
+  min-width: 0;
+}
+@media (max-width: 360px) {
+  .savio-v4 .shift-calendar-grid {
+    gap: 1px;
+    width: calc(100% + 66px);
+    margin-inline: -33px;
+  }
+  .savio-v4 .shift-calendar-grid button {
+    min-height: 48px;
+    padding-inline: 2px;
+  }
+  .savio-v4 .life-month-grid {
+    gap: 1px;
+    width: calc(100% + 24px);
+    margin-inline: -12px;
+  }
+  .savio-v4 .life-month-grid button {
+    min-height: 48px;
+  }
+}
+.savio-v4 .sidebar-nav-heading {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 20px 12px 8px;
+  font-weight: 600;
+}
+.savio-v4 .sidebar-nav-heading:first-child {
+  margin-top: 8px;
+}
+.savio-v4 .sidebar {
+  display: flex;
+  flex-direction: column;
+}
+.savio-v4 .sidebar > nav {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.savio-v4 .sidebar-bottom {
+  margin-top: 16px;
+}
+@media (max-width: 900px) {
+  .savio-v4 .sidebar {
+    display: none;
+  }
+}
+.savio-v4.screen-transactions #money-panel-transactions > .panel {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  box-shadow: none;
+}
+.approved-app.savio-v4 .search-box input {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+.savio-v4 .transaction-day-heading {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  padding-block: 10px;
+}
+.savio-v4 .work-segments {
+  font-size: 13px;
+  color: var(--muted);
+}
+.savio-v4 .section-tabs > button {
+  overflow-wrap: anywhere;
+}
+.savio-v4 .ai-layout {
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+.savio-v4 .ai-orb {
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 12px;
+  box-shadow: none;
+}
+.savio-v4 .ai-orb svg {
+  width: 22px;
+  height: 22px;
+}
+.savio-v4 .ai-intro h2 {
+  font-size: 22px;
+}
+.savio-v4 .ai-local-tools {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 0 16px;
+  background: var(--panel);
+}
+.savio-v4 .ai-local-tools > summary {
+  min-height: 48px;
+  padding-block: 12px;
+  font-size: 15px;
+  cursor: pointer;
+}
+.savio-v4 .ai-local-tools .panel {
+  border: 0;
+  padding-inline: 0;
+  box-shadow: none;
+}
+/* These calendar controls use right/left glyphs for RTL; mirror in LTR. */
+[dir="ltr"] .savio-v4 .life-calendar-toolbar > button.icon-button > svg,
+[dir="ltr"]
+  .savio-v4
+  .shift-calendar
+  .panel-heading
+  .button-row
+  > button.icon-button
+  > svg {
+  transform: rotate(180deg);
+}

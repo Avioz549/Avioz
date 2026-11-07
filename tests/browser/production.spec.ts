@@ -48,7 +48,7 @@ test("advanced workplace agreement, scheduled shift, calendar edit and reports r
   await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await open(page, "shifts");
-  await page.locator(".workplace-manager > summary").click();
+  await page.getByRole("tab", { name: "Workplaces", exact: true }).click();
   await page
     .locator(".workplace-manager")
     .getByRole("button", { name: "Edit", exact: true })
@@ -61,6 +61,7 @@ test("advanced workplace agreement, scheduled shift, calendar edit and reports r
   await d.getByLabel("Automatically apply Saturday rate").check();
   await d.getByRole("button", { name: "Save", exact: true }).click();
   await expect(d).not.toBeVisible();
+  await page.getByRole("tab", { name: "Today", exact: true }).click();
   await page
     .getByRole("button", { name: "Manual shift entry", exact: true })
     .click();
@@ -75,8 +76,11 @@ test("advanced workplace agreement, scheduled shift, calendar edit and reports r
   await d.getByLabel("Scheduled shift — exclude from worked earnings").check();
   await d.getByRole("button", { name: "Save", exact: true }).click();
   await expect(d).not.toBeVisible();
+  await page.getByRole("tab", { name: "Salary", exact: true }).click();
   await expect(page.locator(".salary-overview")).toContainText("450");
+  await page.getByRole("tab", { name: "Today", exact: true }).click();
   await expect(page.locator("tbody")).toContainText("Scheduled");
+  await page.getByRole("tab", { name: "Planning", exact: true }).click();
   await page
     .locator(".shift-calendar")
     .getByRole("button", { name: month + "-20", exact: true })
@@ -88,6 +92,7 @@ test("advanced workplace agreement, scheduled shift, calendar edit and reports r
   await d.getByLabel("Tips", { exact: true }).fill("40");
   await d.getByRole("button", { name: "Save", exact: true }).click();
   await page.reload();
+  await page.getByRole("tab", { name: "Salary", exact: true }).click();
   await expect(page.locator(".salary-overview")).toContainText("460");
   await open(page, "reports");
   await expect(
@@ -122,6 +127,7 @@ test("goal saving share, contributions, withdrawals and overdraw protection pers
   await d.getByLabel("Planned monthly contribution").fill("100");
   await d.getByLabel("Share of estimated shift income to save (%)").fill("25");
   await d.getByRole("button", { name: "Save", exact: true }).click();
+  await page.locator(".goal-management > summary").click();
   await page.locator(".goal-plan-details > summary").click();
   await page.getByRole("button", { name: "Contribute", exact: true }).click();
   d = page.getByRole("dialog");
@@ -156,10 +162,12 @@ test("local chat answers saved-record questions without any external AI request;
   );
   expect(posts).toBe(0);
   await open(page, "transactions");
+  await page.getByRole("tab", { name: "Analysis", exact: true }).click();
   await page.locator(".category-manager summary").click();
   await page.getByLabel("New category name").fill("Training");
   await page.getByRole("button", { name: "Add category", exact: true }).click();
   await page.reload();
+  await page.getByRole("tab", { name: "Analysis", exact: true }).click();
   await page.locator(".category-manager summary").click();
   await expect(page.locator(".category-manager")).toContainText("Training");
   await open(page, "budgets");

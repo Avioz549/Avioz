@@ -27,6 +27,13 @@ async function transaction(
   kind = "expense",
   recurring = false,
 ) {
+  if (
+    !(await page
+      .getByRole("button", { name: "Add transaction", exact: true })
+      .first()
+      .isVisible())
+  )
+    await page.goto("/?tab=overview");
   await page
     .getByRole("button", { name: "Add transaction", exact: true })
     .first()
@@ -70,12 +77,11 @@ test("real records persist and drive the balance, search, editing, analytics and
   await d.getByLabel("Amount").fill("300");
   await d.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.locator(".transaction-amount")).toContainText("300");
-  await page
-    .getByText("Spending analytics & monthly comparison", { exact: true })
-    .click();
+  await page.getByRole("tab", { name: "Analysis", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Where your money goes" }),
   ).toBeVisible();
+  await page.getByRole("tab", { name: "Transactions", exact: true }).click();
   const dl = page.waitForEvent("download");
   await page.getByRole("button", { name: "CSV", exact: true }).click();
   expect((await dl).suggestedFilename()).toContain(".csv");
@@ -146,6 +152,7 @@ test("savings contributions, undated goals, plan changes and purchase calculator
   await d.getByLabel("Planned monthly contribution").fill("500");
   await d.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.locator(".goal-card")).toContainText("No target date");
+  await page.locator(".goal-management > summary").first().click();
   await page.locator(".goal-plan-details>summary").first().click();
   await page.getByRole("button", { name: "Contribute", exact: true }).click();
   await d.getByLabel("Amount").fill("500");
@@ -157,6 +164,7 @@ test("savings contributions, undated goals, plan changes and purchase calculator
   await d.getByLabel("Planned monthly contribution").fill("600");
   await d.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.locator(".goal-card")).toContainText("600");
+  await page.getByRole("tab", { name: "Tools", exact: true }).click();
   await page.getByLabel("Purchase price").fill("500");
   await page.getByLabel("Gross hourly wage").fill("50");
   await page
@@ -175,7 +183,9 @@ test("budgets, reminder CRUD and challenges remain usable", async ({
   await budgetDialog.getByLabel("Monthly budget").fill("500");
   await budgetDialog.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.locator(".budget-ratio")).toContainText("500");
-  await page.getByRole("button", { name: "Calendar", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Payments & reminders", exact: true })
+    .click();
   await page.getByRole("button", { name: "New reminder", exact: true }).click();
   const d = page.getByRole("dialog");
   await expect(d).toHaveAccessibleName("New reminder");
@@ -208,12 +218,15 @@ test("iPhone bottom navigation, More screens, readable forms, RTL and light mode
   await open(page);
   await expect(page.locator(".bottom-nav button")).toHaveCount(5);
   await expect(page.locator("aside")).not.toBeVisible();
-  for (const tab of ["Money", "Work", "Goals", "Planner", "Home"])
+  for (const tab of ["Home", "Work", "Money", "Planner", "More"])
     await page
       .locator(".bottom-nav")
       .getByRole("button", { name: tab, exact: true })
       .click();
-  await page.getByRole("button", { name: "More options", exact: true }).click();
+  await page
+    .locator(".bottom-nav")
+    .getByRole("button", { name: "More", exact: true })
+    .click();
   await page.getByRole("button", { name: /^Settings/ }).click();
   await expect(
     page.getByRole("button", { name: /^Profile & personal details/ }),
@@ -223,11 +236,20 @@ test("iPhone bottom navigation, More screens, readable forms, RTL and light mode
     .click();
   const prefs = page.getByRole("dialog");
   await prefs.getByLabel("Language", { exact: true }).selectOption("he");
-  await prefs.getByLabel("Appearance", { exact: true }).selectOption("light");
+
   await prefs
     .getByRole("button", { name: "Save preferences", exact: true })
     .click();
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+  await page.getByRole("button", { name: /עיצוב האפליקציה/ }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "בהיר נקי", exact: true })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Close", exact: true })
+    .click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await page
     .locator(".bottom-nav")
@@ -375,9 +397,7 @@ test("JSON restore is reviewed, malformed input changes nothing, recovery histor
   await d.getByRole("checkbox").check();
   await d.getByRole("button", { name: "Restore reviewed backup" }).click();
   await page
-    .getByRole("dialog", { name: "Backup & restore", exact: true })
-    .getByRole("button", { name: "Close", exact: true })
-    .first()
+    .getByRole("button", { name: "Back to settings", exact: true })
     .click();
   await page.getByRole("button", { name: "Home", exact: true }).click();
   await expect(page.locator(".hero-balance")).toContainText("100");
@@ -454,6 +474,7 @@ test("AI has local insights without authentication; retired auth routes redirect
   request,
 }) => {
   await open(page, "ai");
+  await page.locator(".ai-local-tools > summary").click();
   await expect(
     page.getByRole("heading", { name: "Local insights", exact: true }),
   ).toBeVisible();
@@ -522,7 +543,7 @@ test("small and large iPhone widths retain unclipped navigation and action contr
     await page.setViewportSize({ width, height: 844 });
     await open(page);
     for (const selector of [
-      ".heading-actions",
+      ".home-period",
       ".month-picker",
       ".ocean-cash-line",
       ".bottom-nav",
