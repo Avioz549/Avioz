@@ -206,7 +206,16 @@ test("work presents one focused section at a time and live timer state survives 
   await expect(page.locator(".reference-work")).toHaveCount(0);
   expect(await stored(page)).toEqual(original);
   await today.click();
+  // Keep navigation latency from advancing this exact elapsed-time assertion.
+  await page.clock.pauseAt(new Date("2026-11-07T12:01:00Z"));
   await page.getByRole("button", { name: "התחלה", exact: true }).click();
+  await expect
+    .poll(async () =>
+      (await stored(page)).data.shifts.some(
+        (shift) => !shift.end && !shift.scheduled,
+      ),
+    )
+    .toBe(true);
   await page.clock.fastForward(60000);
   await page.getByRole("tab", { name: "שכר", exact: true }).click();
   await today.click();
