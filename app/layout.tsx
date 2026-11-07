@@ -5,6 +5,7 @@ import "./approved.css";
 import "./themes.css";
 import "./production.css";
 import "./life.css";
+import "./ocean.css";
 export const metadata: Metadata = {
   title: "SAVIO 4.0 — הכסף שלך. העתיד שלך.",
   description: "Your money. Your future. Personal finance, shifts and savings.",
@@ -22,7 +23,7 @@ export const metadata: Metadata = {
   appleWebApp: { capable: true, title: "SAVIO" },
 };
 export const viewport: Viewport = {
-  themeColor: "#090c0b",
+  themeColor: "#061426",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -33,7 +34,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="he" dir="rtl" suppressHydrationWarning>
+    <html lang="he" dir="rtl" data-theme="ocean" suppressHydrationWarning>
       <body>{children}</body>
     </html>
   );

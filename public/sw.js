@@ -1,6 +1,6 @@
 // Only the generic app shell, icons and build assets are cached. Financial
 // records stay exclusively in IndexedDB; all API requests use the network.
-const CACHE = "savio-public-shell-38cd9c656010f5c8";
+const CACHE = "savio-public-shell-4c115dc1fd5aaac0";
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE).then(async (cache) => {
@@ -13,6 +13,7 @@ self.addEventListener("install", (event) => {
       await cache.addAll([
         "/",
         "/offline.html",
+        "/ocean-sunset.webp",
         "/icons/icon-192.png",
         "/icons/icon-512.png",
         ...assetsManifest.assets,
@@ -54,6 +55,7 @@ self.addEventListener("fetch", (event) => {
     return;
   if (
     url.pathname.startsWith("/_next/static/") ||
+    url.pathname === "/ocean-sunset.webp" ||
     (url.pathname === "/_next/image" &&
       url.searchParams.get("url") === "/goal-photos.png")
   ) {

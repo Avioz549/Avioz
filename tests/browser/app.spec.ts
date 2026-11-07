@@ -524,7 +524,7 @@ test("small and large iPhone widths retain unclipped navigation and action contr
     for (const selector of [
       ".heading-actions",
       ".month-picker",
-      ".reference-balance",
+      ".ocean-cash-line",
       ".bottom-nav",
     ]) {
       const box = await page.locator(selector).boundingBox();

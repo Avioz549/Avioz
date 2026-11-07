@@ -146,6 +146,7 @@ export const preferencesSchema = z.looseObject({
   ]),
   shiftReminders: z.boolean(),
   plannerReminders: z.boolean().optional(),
+  primarySavingsGoalId: z.uuid().nullable().optional(),
 });
 export const lifeSchema = z
   .looseObject({
@@ -208,10 +209,10 @@ export function emptyLife(): LifeData {
     workTargets: {},
     preferences: {
       widgets: [
-        "finance",
-        "smart",
         "work",
+        "finance",
         "savings",
+        "smart",
         "goals",
         "payments",
         "insights",

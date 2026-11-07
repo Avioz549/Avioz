@@ -9,16 +9,8 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-import {
-  Eye,
-  EyeOff,
-  ArrowUpRight,
-  ArrowDownRight,
-  Clock3,
-  Target,
-  Plus,
-  Sparkles,
-} from "lucide-react";
+import { Eye, EyeOff, ArrowDownRight, Target, Plus } from "lucide-react";
+import { sumMoney } from "@/lib/money";
 import {
   recordedMonthTransactions,
   totals,
@@ -33,7 +25,6 @@ export function ReferenceDashboard({
   onAdd,
   onWork,
   onSavings,
-  recent,
 }: {
   data: FinanceData;
   month: string;
@@ -74,196 +65,166 @@ export function ReferenceDashboard({
       `${previous.getFullYear()}-${String(previous.getMonth() + 1).padStart(2, "0")}`,
     ),
   );
-  const savings = data.goals.reduce((n, g) => n + goalSaved(g), 0),
-    target = data.goals.reduce((n, g) => n + g.target, 0);
+  const savings = sumMoney(data.goals.map(goalSaved));
   return (
-    <div className="reference-dashboard">
-      <article className="reference-balance">
-        <div className="balance-symbol">
-          <Target size={27} />
-        </div>
+    <div className="reference-dashboard ocean-finance">
+      <div className="ocean-summary-cards">
+        <article>
+          <ArrowDownRight size={22} />
+          <span>{tr("Monthly income", "הכנסה חודשית")}</span>
+          <strong dir="ltr">{hidden ? "••••" : money(sum.income)}</strong>
+          <small>
+            {tr("Recorded income received", "הכנסות שהתקבלו ותועדו")}
+          </small>
+        </article>
+        <button onClick={onSavings}>
+          <Target size={22} />
+          <span>{tr("Current savings", "החיסכון הנוכחי")}</span>
+          <strong dir="ltr">{hidden ? "••••" : money(savings)}</strong>
+          <small>
+            {tr(
+              "Recorded savings · not a bank balance",
+              "חיסכון מתועד · לא יתרת בנק",
+            )}
+          </small>
+        </button>
+      </div>
+      <div className="ocean-cash-line">
         <div>
-          <span>{tr("Available balance", "יתרה פנויה")}</span>
+          <span>{tr("Recorded balance", "יתרה מתועדת")}</span>
           <strong className="hero-balance" dir="ltr">
             {hidden ? "••••••" : money(sum.balance)}
           </strong>
-          <small>
-            {tr(
-              "Recorded cash flow · not a bank balance",
-              "תזרים מתועד · לא יתרת בנק",
-            )}
-          </small>
+        </div>
+        <div>
+          <span>{tr("Monthly expenses", "הוצאות החודש")}</span>
+          <strong dir="ltr">{hidden ? "••••" : money(sum.expenses)}</strong>
         </div>
         <button
+          className="icon-button"
+          onClick={() => setHidden(!hidden)}
           aria-label={tr(
             hidden ? "Show balance" : "Hide balance",
             hidden ? "הצגת יתרה" : "הסתרת יתרה",
           )}
-          className="icon-button"
-          onClick={() => setHidden(!hidden)}
         >
           {hidden ? <EyeOff size={18} /> : <Eye size={18} />}
         </button>
-      </article>
-      <div className="reference-flow-cards hero-metrics">
-        {[
-          {
-            key: "income",
-            label: tr("Monthly income", "הכנסות החודש"),
-            value: sum.income,
-            previous: prev.income,
-            icon: ArrowDownRight,
-          },
-          {
-            key: "expense",
-            label: tr("Monthly expenses", "הוצאות החודש"),
-            value: sum.expenses,
-            previous: prev.expenses,
-            icon: ArrowUpRight,
-          },
-        ].map(({ key, label, value, previous, icon: Icon }) => (
-          <article key={key}>
-            <div>
-              <span>{label}</span>
-              <Icon size={17} />
-            </div>
-            <strong>{money(value)}</strong>
-            <small className={key === "expense" ? "expense-color" : "positive"}>
-              {previous
-                ? `${value >= previous ? "+" : ""}${Math.round(((value - previous) / previous) * 100)}%`
-                : tr("This month", "החודש הנבחר")}
-            </small>
-          </article>
-        ))}
       </div>
-      <article className="reference-chart panel">
-        <div className="panel-heading">
-          <h2>{tr("My cash flow", "תזרים חודשי")}</h2>
-          <div className="chart-switch">
-            <button
-              aria-pressed={kind === "expense"}
-              onClick={() => setKind("expense")}
-            >
-              {tr("Expenses", "הוצאות")}
-            </button>
-            <button
-              aria-pressed={kind === "income"}
-              onClick={() => setKind("income")}
-            >
-              {tr("Income", "הכנסות")}
-            </button>
-          </div>
-        </div>
-        <div
-          className="chart"
-          role="img"
-          aria-label={tr(
-            "Financial activity in the selected month",
-            "פעילות פיננסית בחודש הנבחר",
-          )}
-        >
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={chart}
-              margin={{ top: 12, right: 4, bottom: 0, left: 4 }}
-            >
-              <defs>
-                <linearGradient id="reference-bar" x1="0" y1="0" x2="0" y2="1">
-                  <stop stopColor="#54ff9f" />
-                  <stop offset="1" stopColor="#0c743d" />
-                </linearGradient>
-              </defs>
-              <CartesianGrid
-                vertical={false}
-                stroke="var(--line)"
-                strokeDasharray="2 6"
-              />
-              <XAxis
-                dataKey="label"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fill: "var(--muted)", fontSize: 11 }}
-              />
-              <Tooltip
-                cursor={{ fill: "#ffffff04" }}
-                contentStyle={{
-                  background: "var(--panel)",
-                  border: "1px solid var(--line)",
-                  borderRadius: 12,
-                }}
-                formatter={(v) => money(Number(v))}
-              />
-              <Bar
-                dataKey="value"
-                name={
-                  kind === "expense"
-                    ? tr("Expenses", "הוצאות")
-                    : tr("Income", "הכנסות")
-                }
-                radius={[5, 5, 2, 2]}
-                isAnimationActive={false}
+      <details className="ocean-finance-details">
+        <summary>
+          {tr("Cash flow & monthly comparison", "תזרים והשוואה חודשית")}
+        </summary>
+        <article className="reference-chart panel">
+          <div className="panel-heading">
+            <h2>{tr("My cash flow", "תזרים חודשי")}</h2>
+            <div className="chart-switch">
+              <button
+                aria-pressed={kind === "expense"}
+                onClick={() => setKind("expense")}
               >
-                {chart.map((c, i) => (
-                  <Cell
-                    key={c.label}
-                    fill={i === last ? "url(#reference-bar)" : "#263b2f"}
-                  />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-        {!data.transactions.length && (
-          <p className="chart-empty-copy">
-            {tr(
-              "Add your first transaction to reveal your trends.",
-              "הוסיפו תנועה ראשונה כדי לראות את המגמות שלכם.",
+                {tr("Expenses", "הוצאות")}
+              </button>
+              <button
+                aria-pressed={kind === "income"}
+                onClick={() => setKind("income")}
+              >
+                {tr("Income", "הכנסות")}
+              </button>
+            </div>
+          </div>
+          <div
+            className="chart"
+            role="img"
+            aria-label={tr(
+              "Financial activity in the selected month",
+              "פעילות פיננסית בחודש הנבחר",
             )}
-          </p>
-        )}
-      </article>
-      <div className="reference-summary">
-        <button onClick={onWork}>
-          <Clock3 size={20} />
-          <div>
-            <span>{tr("Expected gross salary", "שכר ברוטו צפוי")}</span>
-            <strong>{money(pay)}</strong>
+          >
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={chart}
+                margin={{ top: 12, right: 4, bottom: 0, left: 4 }}
+              >
+                <defs>
+                  <linearGradient
+                    id="reference-bar"
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
+                    <stop stopColor="var(--green)" />
+                    <stop offset="1" stopColor="var(--green-bg)" />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid
+                  vertical={false}
+                  stroke="var(--line)"
+                  strokeDasharray="2 6"
+                />
+                <XAxis
+                  dataKey="label"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: "var(--muted)", fontSize: 11 }}
+                />
+                <Tooltip
+                  cursor={{ fill: "#ffffff04" }}
+                  contentStyle={{
+                    background: "var(--panel)",
+                    border: "1px solid var(--line)",
+                    borderRadius: 12,
+                  }}
+                  formatter={(v) => money(Number(v))}
+                />
+                <Bar
+                  dataKey="value"
+                  name={
+                    kind === "expense"
+                      ? tr("Expenses", "הוצאות")
+                      : tr("Income", "הכנסות")
+                  }
+                  radius={[5, 5, 2, 2]}
+                  isAnimationActive={false}
+                >
+                  {chart.map((c, i) => (
+                    <Cell
+                      key={c.label}
+                      fill={i === last ? "url(#reference-bar)" : "var(--line)"}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
-        </button>
-        <button onClick={onSavings}>
-          <Target size={20} />
-          <div>
-            <span>{tr("Recorded savings", "חיסכון מתועד")}</span>
-            <strong>{money(savings)}</strong>
-          </div>
-          <small>
-            {target
-              ? Math.min(100, Math.round((savings / target) * 100)) + "%"
-              : "—"}
-          </small>
-        </button>
-      </div>
-      <section className="reference-recent">
-        <div className="panel-heading">
-          <h2>{tr("Recent transactions", "תנועות אחרונות")}</h2>
-          <button className="text-button" onClick={onAdd}>
+          {!data.transactions.length && (
+            <p className="chart-empty-copy">
+              {tr(
+                "Add your first transaction to reveal your trends.",
+                "הוסיפו תנועה ראשונה כדי לראות את המגמות שלכם.",
+              )}
+            </p>
+          )}
+        </article>
+
+        <p className="small muted">
+          {tr("Income change", "שינוי בהכנסות")}:{" "}
+          {prev.income
+            ? Math.round(((sum.income - prev.income) / prev.income) * 100) + "%"
+            : "—"}{" "}
+          · {tr("Expected gross salary", "שכר ברוטו צפוי")}: {money(pay)}
+        </p>
+        <div className="button-row">
+          <button className="secondary" onClick={onWork}>
+            {tr("Open work", "פתיחת העבודה")}
+          </button>
+          <button className="secondary" onClick={onAdd}>
             <Plus size={18} />
             {tr("Add transaction", "הוספת תנועה")}
           </button>
         </div>
-        {recent}
-      </section>
-      <article className="reference-insight">
-        <Sparkles size={20} />
-        <p>
-          {sum.income
-            ? `${tr("A conservative saving allowance", "מרווח חיסכון שמרני")}: ${money(Math.max(0, sum.balance) * 0.2)}`
-            : tr(
-                "Your next step: record income and expenses for insights based on your own numbers.",
-                "הצעד הבא: תעדו הכנסות והוצאות לקבלת תובנות שמבוססות עליכם.",
-              )}
-        </p>
-      </article>
+      </details>
     </div>
   );
 }

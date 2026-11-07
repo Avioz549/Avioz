@@ -242,6 +242,7 @@ export function SettingsScreen({
               {themes.map((theme) => (
                 <button
                   key={theme.id}
+                  data-theme-id={theme.id}
                   type="button"
                   className="theme-option"
                   disabled={busy}

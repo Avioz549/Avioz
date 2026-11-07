@@ -381,7 +381,7 @@ test("dashboard widget order, visibility, quick actions and opening preference s
     f.getByLabel("Financial overview", { exact: true }),
   ).not.toBeChecked();
   await f
-    .getByRole("button", { name: "Move up Work & salary", exact: true })
+    .getByRole("button", { name: "Move down Work & salary", exact: true })
     .click();
   await f.getByLabel("Event", { exact: true }).check();
   await f

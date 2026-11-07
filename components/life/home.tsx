@@ -10,6 +10,9 @@ import {
   Target,
   CalendarDays,
   Sparkles,
+  ChevronLeft,
+  ArrowUpRight,
+  Wallet,
 } from "lucide-react";
 import {
   lifeOf,
@@ -24,7 +27,7 @@ import { widgetIds, actionIds } from "@/lib/life-model";
 import { goalSaved } from "@/lib/finance";
 import { dateKey, monthlyPayroll } from "@/lib/payroll";
 import { Modal } from "../ui";
-import { SalaryOverview, InsightsPanel } from "../production-suite";
+import { InsightsPanel } from "../production-suite";
 import type { LifeProps } from "./types";
 export function SmartDayScreen({
   data,
@@ -281,6 +284,10 @@ export function LifeHome(
       .filter((s) => s.scheduled && s.end && Date.parse(s.end) > now.getTime())
       .sort((a, b) => Date.parse(a.start) - Date.parse(b.start)),
     next = upcoming[0];
+  const primaryGoal =
+    data.goals.find((g) => g.id === prefs.primarySavingsGoalId) ??
+    data.goals.find((g) => goalSaved(g) < g.target) ??
+    data.goals[0];
   const pay = useMemo(
     () => monthlyPayroll(data, props.month, now),
     [data, props.month, now],
@@ -339,8 +346,35 @@ export function LifeHome(
         ),
       );
   };
+  const legacyDefaultOrder = [
+    "finance",
+    "smart",
+    "work",
+    "savings",
+    "goals",
+    "payments",
+    "insights",
+    "recent",
+  ];
+  const hasCustomOrder =
+    prefs.widgets.join(",") !== legacyDefaultOrder.join(",") &&
+    prefs.widgets.join(",") !==
+      "work,finance,savings,smart,goals,payments,insights,recent";
+  const preferredOrder =
+    prefs.widgets.join(",") === legacyDefaultOrder.join(",")
+      ? ([
+          "work",
+          "finance",
+          "savings",
+          "smart",
+          "goals",
+          "payments",
+          "insights",
+          "recent",
+        ] as const)
+      : prefs.widgets;
   const order = [
-    ...prefs.widgets,
+    ...preferredOrder,
     ...widgetIds.filter((id) => !prefs.widgets.includes(id)),
   ];
   const move = (id: (typeof widgetIds)[number], delta: number) => {
@@ -354,121 +388,187 @@ export function LifeHome(
   const widgets: Record<(typeof widgetIds)[number], React.ReactNode> = {
     finance: props.finance,
     smart: (
-      <article className="panel home-smart">
-        <div className="flex-between">
-          <span className="eyebrow">SMART DAY</span>
-          <span className="pill">
-            {day.completion === null ? "—" : day.completion + "%"}
-          </span>
+      <article className="panel ocean-tasks">
+        <div className="panel-heading">
+          <h2>{tr("Today’s tasks", "המשימות להיום")}</h2>
+          <button
+            className="text-button"
+            onClick={() => onNavigate?.("planner")}
+          >
+            {tr("Full planner", "לתכנון המלא")}
+            <ChevronLeft size={16} />
+          </button>
         </div>
-        <h2>{tr("Your day, in focus", "היום שלך, בפוקוס")}</h2>
-        <p className="muted">
-          {day.total - day.done} {tr("open tasks today", "משימות פתוחות להיום")}{" "}
-          · {day.entries.filter((e) => e.type === "shift").length}{" "}
-          {tr("shifts", "משמרות")}
-        </p>
-        {day.entries.slice(0, 3).map((e) => (
-          <div className="life-mini-row" key={e.key}>
-            <span>{e.title}</span>
-            <small>{e.time ?? tr("All day", "כל היום")}</small>
-          </div>
-        ))}
-        {!day.entries.length && (
+        {day.entries
+          .filter((e) => e.type === "task")
+          .slice(0, 3)
+          .map((e) => (
+            <div className="life-mini-row" key={e.key}>
+              <button
+                className="icon-button task-check"
+                disabled={busy}
+                aria-label={tr("Complete task ", "סימון משימה ") + e.title}
+                aria-pressed={e.done}
+                onClick={() =>
+                  void onSave({
+                    ...data,
+                    life: {
+                      ...life,
+                      tasks: life.tasks.map((task) =>
+                        task.id === e.id
+                          ? toggleTask(task, today, new Date().toISOString())
+                          : task,
+                      ),
+                    },
+                  })
+                }
+              >
+                <Check size={16} />
+              </button>
+              <span className={e.done ? "completed-task" : ""}>{e.title}</span>
+              <small>{e.time ?? tr("All day", "כל היום")}</small>
+            </div>
+          ))}
+        {!day.total && (
           <p className="muted">
             {tr(
-              "A fresh page. Add what matters today.",
-              "דף חדש. הוסיפו את מה שחשוב להיום.",
+              "A little room for what matters. Add your first task for today.",
+              "מקום למה שחשוב לך. הוסיפו משימה ראשונה להיום.",
             )}
           </p>
         )}
-        {day.upcoming.length > 0 && (
-          <>
-            <h3>{tr("Upcoming tasks", "משימות קרובות")}</h3>
-            {day.upcoming.map((o) => (
-              <div className="life-mini-row" key={o.key}>
-                <span>{o.task.title}</span>
-                <small>{o.date}</small>
-              </div>
-            ))}
-          </>
-        )}
-        <div className="button-row">
-          <button className="secondary" onClick={() => onNavigate?.("smart")}>
-            {tr("My Smart Day", "היום החכם שלי")}
-          </button>
-          <button
-            className="text-button"
-            onClick={() => onEdit({ kind: "task", date: today })}
-          >
-            {tr("Add task", "הוספת משימה")}
-          </button>
-        </div>
+        <button
+          className="text-button"
+          onClick={() => onEdit({ kind: "task", date: today })}
+        >
+          <Plus size={16} />
+          {tr("Add task", "הוספת משימה")}
+        </button>
       </article>
     ),
     work: (
-      <>
-        <SalaryOverview data={data} month={props.month} now={now} compact />
-        <article className="panel">
-          <Clock3 className="positive" />
-          <h3>{tr("Your next shift", "המשמרת הבאה שלך")}</h3>
+      <article className="panel ocean-next-shift">
+        <span className="ocean-feature-icon">
+          <CalendarDays size={27} />
+        </span>
+        <div className="grow">
+          <span className="eyebrow">
+            {tr("Your next shift", "המשמרת הבאה שלך")}
+          </span>
           {next ? (
             <>
-              <strong>
+              <h2>
                 {data.workplaces.find((w) => w.id === next.workplaceId)?.name}
-              </strong>
-              <p>
-                {new Date(next.start).toLocaleString(he ? "he-IL" : "en-US")}
+              </h2>
+              <p className="ocean-shift-date">
+                {new Date(next.start).toLocaleDateString(
+                  he ? "he-IL" : "en-US",
+                  { weekday: "short", day: "numeric", month: "short" },
+                )}{" "}
+                ·{" "}
+                <bdi>
+                  {new Date(next.start).toLocaleTimeString(
+                    he ? "he-IL" : "en-US",
+                    { hour: "2-digit", minute: "2-digit", hour12: false },
+                  )}{" "}
+                  –{" "}
+                  {new Date(next.end!).toLocaleTimeString(
+                    he ? "he-IL" : "en-US",
+                    { hour: "2-digit", minute: "2-digit", hour12: false },
+                  )}
+                </bdi>
               </p>
-              <p>
+              <small>
                 {tr("Estimated gross", "ברוטו משוער")}:{" "}
                 {money(pay.byShift[next.id]?.gross ?? 0)}
-              </p>
+              </small>
             </>
           ) : (
-            <p className="muted">
-              {tr(
-                "No upcoming shift has been planned.",
-                "לא נשמרה משמרת עתידית.",
-              )}
-            </p>
+            <>
+              <h2>{tr("Make room for your next step", "מקום לצעד הבא שלך")}</h2>
+              <p className="muted">
+                {tr(
+                  "No upcoming shift has been planned.",
+                  "לא נשמרה משמרת עתידית.",
+                )}
+              </p>
+            </>
           )}
-          <button className="secondary" onClick={() => onNavigate?.("shifts")}>
-            {tr("Open work", "פתיחת העבודה")}
-          </button>
-        </article>
-      </>
+        </div>
+        <button
+          className="icon-button"
+          aria-label={tr("Open work", "פתיחת העבודה")}
+          onClick={() => onNavigate?.("shifts")}
+        >
+          <ChevronLeft size={22} />
+        </button>
+      </article>
     ),
     savings: (
-      <article className="panel">
-        <h3>{tr("Recorded savings", "חיסכון מתועד")}</h3>
-        {data.goals.map((g) => (
-          <div key={g.id}>
+      <article className="panel ocean-main-goal">
+        <div className="panel-heading">
+          <span className="eyebrow">
+            {tr("Your main savings goal", "יעד החיסכון המרכזי שלך")}
+          </span>
+          <Target size={24} />
+        </div>
+        {primaryGoal ? (
+          <>
+            <h2>{primaryGoal.name}</h2>
             <div className="flex-between">
-              <span>{g.name}</span>
-              <strong>{money(goalSaved(g))}</strong>
+              <strong>
+                {Math.min(
+                  100,
+                  Math.round(
+                    (goalSaved(primaryGoal) / primaryGoal.target) * 100,
+                  ),
+                )}
+                %
+              </strong>
+              <span className="ocean-goal-amounts">
+                <bdi>{money(goalSaved(primaryGoal))}</bdi>
+                <span aria-hidden="true"> / </span>
+                <bdi>{money(primaryGoal.target)}</bdi>
+              </span>
             </div>
-            <div className="progress">
+            <div
+              className="progress"
+              role="progressbar"
+              aria-label={primaryGoal.name}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.min(
+                100,
+                Math.round((goalSaved(primaryGoal) / primaryGoal.target) * 100),
+              )}
+            >
               <i
                 style={{
-                  width: Math.min(100, (goalSaved(g) / g.target) * 100) + "%",
+                  width:
+                    Math.min(
+                      100,
+                      (goalSaved(primaryGoal) / primaryGoal.target) * 100,
+                    ) + "%",
                 }}
               />
             </div>
-          </div>
-        ))}
-        {!data.goals.length && (
-          <p className="muted">
-            {tr("No savings goal yet.", "אין עדיין יעד חיסכון.")}
-          </p>
+          </>
+        ) : (
+          <>
+            <h2>
+              {tr("Something worth saving for", "משהו ששווה לחסוך בשבילו")}
+            </h2>
+            <p className="muted">
+              {tr(
+                "Choose a goal. Make it yours, one step at a time.",
+                "בחרו יעד משלכם. מתקדמים אליו צעד אחר צעד.",
+              )}
+            </p>
+          </>
         )}
-        <p className="small muted">
-          {tr(
-            "Recorded contributions, not verified bank balances.",
-            "הפקדות מתועדות, לא יתרות בנק מאומתות.",
-          )}
-        </p>
-        <button className="secondary" onClick={() => onNavigate?.("goals")}>
+        <button className="text-button" onClick={() => onNavigate?.("goals")}>
           {tr("Open savings", "פתיחת החיסכון")}
+          <ArrowUpRight size={16} />
         </button>
       </article>
     ),
@@ -558,25 +658,14 @@ export function LifeHome(
           <SlidersHorizontal />
         </button>
       </div>
-      <div className="life-quick-actions">
-        {prefs.actions.map((a) => (
-          <button
-            key={a}
-            aria-label={
-              a === "transaction"
-                ? tr("Add transaction", "הוספת תנועה")
-                : undefined
-            }
-            onClick={() => onQuick(a)}
-          >
-            <Plus size={18} />
-            <span>{actions[a]}</span>
-          </button>
-        ))}
-      </div>
       <div className="life-widget-grid">
         {order
-          .filter((id) => !prefs.hidden.includes(id))
+          .filter(
+            (id) =>
+              !prefs.hidden.includes(id) &&
+              (hasCustomOrder ||
+                ["work", "finance", "savings", "smart"].includes(id)),
+          )
           .map((id) => (
             <section
               className={"life-widget widget-" + id}
@@ -587,6 +676,61 @@ export function LifeHome(
             </section>
           ))}
       </div>
+      <section className="ocean-actions-section">
+        <h2>{tr("Quick actions", "פעולות מהירות")}</h2>
+        <div className="life-quick-actions">
+          {prefs.actions.map((a) => {
+            const Icon = {
+              transaction: Wallet,
+              shift: Clock3,
+              task: Check,
+              event: CalendarDays,
+              goal: Target,
+            }[a];
+            return (
+              <button
+                key={a}
+                aria-label={
+                  a === "transaction"
+                    ? tr("Add transaction", "הוספת תנועה")
+                    : undefined
+                }
+                onClick={() => onQuick(a)}
+              >
+                <Icon size={22} />
+                <span>{actions[a]}</span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+      {!hasCustomOrder &&
+        order.some(
+          (id) =>
+            !prefs.hidden.includes(id) &&
+            !["work", "finance", "savings", "smart"].includes(id),
+        ) && (
+          <details className="ocean-more-widgets">
+            <summary>{tr("More from your day", "עוד מהיום שלך")}</summary>
+            <div className="life-widget-grid">
+              {order
+                .filter(
+                  (id) =>
+                    !prefs.hidden.includes(id) &&
+                    !["work", "finance", "savings", "smart"].includes(id),
+                )
+                .map((id) => (
+                  <section
+                    className={"life-widget widget-" + id}
+                    data-widget={id}
+                    key={id}
+                  >
+                    {widgets[id]}
+                  </section>
+                ))}
+            </div>
+          </details>
+        )}
       {prefs.hidden.length === widgetIds.length && (
         <article className="panel">
           <p>
@@ -611,8 +755,8 @@ export function LifeHome(
           {preferenceError && <p role="alert">{preferenceError}</p>}
           <p className="muted">
             {tr(
-              "Changes are saved on this device. Use arrows to arrange your widgets.",
-              "השינויים נשמרים במכשיר. השתמשו בחצים כדי לסדר את הרכיבים.",
+              "Changes are saved on this device. Custom ordering displays all selected widgets in that order; defaults keep extra insights collapsed.",
+              "השינויים נשמרים במכשיר. סדר אישי מציג את כל הרכיבים שנבחרו לפי הסדר שלכם; בברירת המחדל התובנות הנוספות נמצאות באזור נפתח.",
             )}
           </p>
           {order.map((id, i) => (
@@ -651,6 +795,29 @@ export function LifeHome(
               </button>
             </div>
           ))}
+          <label className="field">
+            <span>{tr("Primary savings goal", "יעד חיסכון מרכזי")}</span>
+            <select
+              aria-label={tr("Primary savings goal", "יעד חיסכון מרכזי")}
+              value={prefs.primarySavingsGoalId ?? ""}
+              disabled={busy}
+              onChange={(e) =>
+                savePreferences({
+                  ...prefs,
+                  primarySavingsGoalId: e.target.value || null,
+                })
+              }
+            >
+              <option value="">
+                {tr("First active savings goal", "יעד החיסכון הפעיל הראשון")}
+              </option>
+              {data.goals.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          </label>
           <h3>{tr("Quick actions", "פעולות מהירות")}</h3>
           {actionIds.map((a) => (
             <label className="checkbox" key={a}>
@@ -714,10 +881,20 @@ export function LifeHome(
             onClick={() =>
               savePreferences({
                 ...prefs,
-                widgets: [...widgetIds],
+                widgets: [
+                  "work",
+                  "finance",
+                  "savings",
+                  "smart",
+                  "goals",
+                  "payments",
+                  "insights",
+                  "recent",
+                ],
                 hidden: [],
                 actions: ["transaction", "shift", "task"],
                 home: "overview",
+                primarySavingsGoalId: null,
               })
             }
           >

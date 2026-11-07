@@ -135,7 +135,7 @@ export const dataSchema = z
       name: z.string().max(100),
       currency: z.enum(["ILS", "USD", "EUR", "GBP"]),
       language: z.enum(["en", "he"]),
-      theme: z.enum(["dark", "light", "midnight", "purple", "system"]),
+      theme: z.enum(["dark", "light", "midnight", "purple", "system", "ocean"]),
     }),
   })
   .refine(
@@ -231,7 +231,7 @@ export function emptyData(): FinanceData {
     goals: [],
     budgets: {},
     reminders: [],
-    profile: { name: "", currency: "ILS", language: "he", theme: "dark" },
+    profile: { name: "", currency: "ILS", language: "he", theme: "ocean" },
   };
 }
 export function shiftPay(shift: Shift, workplace: Workplace, now = new Date()) {

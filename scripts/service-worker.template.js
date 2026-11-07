@@ -13,6 +13,7 @@ self.addEventListener("install", (event) => {
       await cache.addAll([
         "/",
         "/offline.html",
+        "/ocean-sunset.webp",
         "/icons/icon-192.png",
         "/icons/icon-512.png",
         ...assetsManifest.assets,
@@ -54,6 +55,7 @@ self.addEventListener("fetch", (event) => {
     return;
   if (
     url.pathname.startsWith("/_next/static/") ||
+    url.pathname === "/ocean-sunset.webp" ||
     (url.pathname === "/_next/image" &&
       url.searchParams.get("url") === "/goal-photos.png")
   ) {

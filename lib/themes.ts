@@ -1,5 +1,13 @@
 export const themes = [
   {
+    id: "ocean",
+    en: "Ocean Blue",
+    he: "Ocean Blue",
+    background: "#061426",
+    surface: "#102840",
+    accent: "#62dfff",
+  },
+  {
     id: "dark",
     en: "Premium Dark",
     he: "כהה פרימיום",

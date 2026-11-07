@@ -11,7 +11,7 @@ test("existing dark and light preferences remain valid; new themes round trip", 
       theme.id,
     );
   }
-  assert.equal(emptyData().profile.theme, "dark");
+  assert.equal(emptyData().profile.theme, "ocean");
 });
 test("system preference follows the device without changing explicit themes", () => {
   assert.equal(resolveTheme("system", true), "dark");

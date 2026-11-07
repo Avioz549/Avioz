@@ -1,0 +1,520 @@
+/* One shared information architecture; Ocean Blue changes presentation only. */
+:root[data-theme="ocean"] {
+  color-scheme: dark;
+  --bg: #061426;
+  --panel: #0d2138;
+  --panel-soft: #112b45;
+  --sidebar: #081a2e;
+  --line: #29465f;
+  --text: #f2f8ff;
+  --muted: #b5c8dc;
+  --green: #62dfff;
+  --green-bg: #123c55;
+  --accent: #62dfff;
+  --accent-bright: #b2f1ff;
+  --accent-start: #48c8f5;
+  --accent-end: #86eafa;
+  --card-tint: #102c46;
+  --card-line: #29465f;
+  --nav-top: #091c30f5;
+  --nav-bottom: #061426;
+  --reference-green: #62dfff;
+  --reference-bright: #b2f1ff;
+  --shadow: 0 12px 32px #00000026;
+}
+.savio-v4 .life-home {
+  max-width: 920px;
+  margin-inline: auto;
+}
+.savio-v4 .life-home-intro {
+  margin: 16px 0 28px;
+  align-items: center;
+}
+.savio-v4 .life-home-intro h1 {
+  font-size: clamp(26px, 4vw, 36px);
+  letter-spacing: -0.7px;
+  margin: 8px 0;
+}
+.savio-v4 .life-home-intro .eyebrow {
+  font-size: 14px;
+  letter-spacing: 0;
+}
+.savio-v4 .life-home-intro .muted {
+  font-size: 15px;
+}
+.savio-v4 .life-widget-grid {
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+.savio-v4 .life-widget {
+  gap: 0;
+}
+.savio-v4 .life-home :is(h2, h3) {
+  margin: 0 0 12px;
+  font-size: 20px;
+  line-height: 1.45;
+}
+.savio-v4 .life-home .panel {
+  padding: 24px;
+  border-radius: 24px;
+}
+.savio-v4 .ocean-next-shift {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+.savio-v4 .ocean-next-shift h2 {
+  font-size: 21px;
+  margin: 6px 0;
+}
+.savio-v4 .ocean-next-shift .eyebrow {
+  letter-spacing: 0;
+  font-size: 14px;
+}
+.ocean-feature-icon {
+  display: grid;
+  place-items: center;
+  color: var(--green);
+  background: var(--green-bg);
+  border-radius: 16px;
+  width: 56px;
+  height: 64px;
+  flex-shrink: 0;
+}
+.ocean-shift-date {
+  margin: 4px 0;
+  font-size: 16px;
+}
+.savio-v4 .ocean-finance {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+.ocean-summary-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.ocean-summary-cards > :is(article, button) {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 20px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  color: var(--text);
+  text-align: start;
+  min-width: 0;
+}
+.ocean-summary-cards svg {
+  color: var(--green);
+}
+.ocean-summary-cards span {
+  font-size: 15px;
+  color: var(--muted);
+}
+.ocean-summary-cards strong {
+  font-size: clamp(20px, 5.4vw, 28px);
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+.ocean-summary-cards small {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.ocean-cash-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 4px;
+}
+.ocean-cash-line > div {
+  flex: 1;
+  display: grid;
+  gap: 4px;
+}
+.ocean-cash-line span {
+  color: var(--muted);
+  font-size: 12px;
+}
+.ocean-cash-line .hero-balance,
+.ocean-cash-line strong {
+  font-size: 16px;
+  text-align: start;
+}
+.ocean-finance-details,
+.ocean-more-widgets {
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--panel);
+  padding: 0 16px;
+}
+.ocean-finance-details > summary,
+.ocean-more-widgets > summary {
+  min-height: 48px;
+  padding-block: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--muted);
+}
+.savio-v4 .ocean-finance-details .reference-chart {
+  margin-block: 8px;
+  padding: 16px;
+}
+.ocean-finance-details[open],
+.ocean-more-widgets[open] {
+  padding-bottom: 16px;
+}
+.ocean-main-goal .progress {
+  margin: 16px 0;
+  height: 8px;
+}
+.ocean-main-goal .flex-between {
+  gap: 12px;
+  font-size: 14px;
+}
+.ocean-main-goal .flex-between strong {
+  color: var(--green);
+  font-size: 22px;
+}
+.savio-v4 .life-home .text-button {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 44px;
+}
+.savio-v4 .ocean-tasks .panel-heading {
+  align-items: center;
+  margin: 0;
+  gap: 8px;
+}
+.savio-v4 .ocean-tasks .panel-heading h2 {
+  margin: 0;
+}
+.ocean-tasks .panel-heading .text-button {
+  font-size: 13px;
+}
+.ocean-tasks .life-mini-row {
+  gap: 8px;
+}
+.ocean-tasks .life-mini-row > span {
+  flex: 1;
+}
+.completed-task {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+.task-check[aria-pressed="true"] {
+  background: var(--green-bg);
+  color: var(--green);
+}
+.savio-v4 .ocean-actions-section {
+  margin-top: 28px;
+}
+.savio-v4 .life-quick-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 12px 0 24px;
+}
+.savio-v4 .life-quick-actions button {
+  flex-direction: column;
+  min-height: 84px;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 16px 8px;
+  background: var(--panel);
+  font-size: 14px;
+}
+.savio-v4 .life-quick-actions svg {
+  color: var(--green);
+}
+.savio-v4 .ocean-more-widgets .life-widget-grid {
+  padding-top: 12px;
+}
+/* The only photographic background in the application is this home-only layer. */
+:root[data-theme="ocean"] .screen-overview .main-content {
+  position: relative;
+  isolation: isolate;
+}
+:root[data-theme="ocean"] .screen-overview .main-content::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0 0 auto;
+  height: 440px;
+  z-index: -1;
+  background-image:
+    linear-gradient(180deg, #06142626 0%, #06142666 50%, #061426 100%),
+    url("/ocean-sunset.webp");
+  background-size: cover;
+  background-position: center;
+}
+:root[data-theme="ocean"] .screen-overview .life-home-intro {
+  text-shadow: 0 2px 16px #000;
+}
+:root[data-theme="ocean"]
+  .screen-overview
+  .life-home-intro
+  :is(.muted, .eyebrow) {
+  color: #e0ecf8;
+}
+:root[data-theme="ocean"]
+  .life-home
+  :is(.panel, .ocean-summary-cards > article, .ocean-summary-cards > button) {
+  background: linear-gradient(125deg, #153957d9, #0a2038ee);
+  border-color: #71c8ed40;
+  box-shadow:
+    inset 0 1px #d3f1ff0c,
+    0 12px 24px #00000020;
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+:root[data-theme="ocean"]
+  .approved-app
+  :is(
+    .reference-chart,
+    .reference-goal,
+    .reference-balance,
+    .reference-timer,
+    .budget-category-card,
+    .settings-row-group,
+    .work-timer-card,
+    .life-recap-hero
+  ) {
+  background: linear-gradient(135deg, var(--panel-soft), var(--panel));
+  border-color: var(--line);
+}
+:root[data-theme="ocean"] .approved-app .reference-goal.reference-goal {
+  background-image: linear-gradient(135deg, var(--panel-soft), var(--panel));
+}
+:root[data-theme="ocean"] .approved-app :is(.positive, .income-color) {
+  color: var(--green);
+}
+:root[data-theme="ocean"] .approved-app .primary {
+  color: #042134;
+}
+:root[data-theme="ocean"] .theme-option[aria-pressed="true"] {
+  box-shadow:
+    0 0 0 1px var(--green),
+    0 6px 24px #45c9ff14;
+}
+.theme-option[data-theme-id="ocean"] .theme-preview {
+  background: linear-gradient(150deg, #286087, #071b30) !important;
+}
+:root[data-theme="ocean"] .approved-app :is(.brand-mark, .welcome-logo-mark) {
+  color: var(--green);
+}
+@media (max-width: 900px) {
+  .savio-v4.screen-overview .heading-actions > .primary {
+    display: none;
+  }
+  .savio-v4.screen-overview .main-content {
+    padding-top: 12px;
+  }
+  .savio-v4 .life-home .panel {
+    padding: 20px;
+  }
+  .savio-v4 .ocean-next-shift {
+    gap: 12px;
+  }
+  .savio-v4 .ocean-next-shift .ocean-feature-icon {
+    width: 44px;
+    height: 52px;
+    border-radius: 14px;
+  }
+  .savio-v4 .ocean-next-shift > .icon-button {
+    width: 44px;
+    flex-shrink: 0;
+  }
+}
+@media (max-width: 360px) {
+  .ocean-summary-cards > :is(article, button) {
+    padding: 16px 12px;
+  }
+  .savio-v4 .ocean-tasks .panel-heading {
+    flex-wrap: wrap;
+  }
+  .savio-v4 .life-home .panel {
+    padding: 16px;
+  }
+  .savio-v4 .ocean-next-shift h2 {
+    font-size: 18px;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .savio-v4 .life-home .panel,
+  .theme-option {
+    transition:
+      border-color 0.18s ease,
+      background-color 0.18s ease;
+  }
+}
+.theme-picker .theme-option {
+  min-height: 100px;
+  padding: 16px;
+  border-radius: 20px;
+}
+.theme-picker .theme-preview {
+  width: 104px;
+  height: 64px;
+  position: relative;
+  overflow: hidden;
+}
+.theme-picker .theme-preview > span::after {
+  content: "";
+  display: block;
+  height: 12px;
+  margin-top: 6px;
+  border-radius: 4px;
+  background: currentColor;
+  opacity: 0.1;
+  width: 85%;
+}
+.theme-picker .theme-option > span:nth-child(2) {
+  font-size: 17px;
+}
+/* Finish the original screens with the same Ocean palette, including dialogs. */
+:root[data-theme="ocean"]
+  .approved-app
+  :is(
+    .month-picker,
+    .transaction-segments,
+    .search-box,
+    .transaction-list,
+    .transaction-row,
+    .work-segments,
+    .workplace-manager,
+    .workplace,
+    .chart-switch,
+    .reference-recent,
+    .transaction-day-heading,
+    .table-scroll tbody tr,
+    .row-menu[open] .row-actions,
+    .more-card,
+    dialog
+  ) {
+  background: var(--panel);
+  border-color: var(--line);
+  color: var(--text);
+}
+:root[data-theme="ocean"]
+  .approved-app
+  :is(.transaction-segments button, .chart-switch button) {
+  color: var(--muted);
+  min-height: 44px;
+}
+:root[data-theme="ocean"]
+  .approved-app
+  :is(
+    .transaction-segments button[aria-pressed="true"],
+    .chart-switch button[aria-pressed="true"],
+    .floating-add
+  ) {
+  background: linear-gradient(120deg, var(--accent-start), var(--accent-end));
+  color: #042134;
+  border-color: #86eafa66;
+  box-shadow: 0 4px 16px #48c8f51a;
+}
+:root[data-theme="ocean"]
+  .approved-app
+  :is(.transaction-icon.positive, .more-icon, .generic-goal-art) {
+  background: var(--green-bg);
+  color: var(--green);
+  border-color: var(--line);
+}
+:root[data-theme="ocean"] .approved-app :is(input, select, textarea) {
+  background-color: var(--panel-soft);
+  color: var(--text);
+  border-color: var(--line);
+  font-size: 16px;
+}
+:root[data-theme="ocean"] .approved-app .search-box input {
+  background: transparent;
+}
+:root[data-theme="ocean"] .approved-app .settings-row {
+  border-color: var(--line);
+  font-size: 16px;
+  min-height: 60px;
+}
+:root[data-theme="ocean"] .approved-app .settings-row > small {
+  color: var(--muted);
+  font-size: 13px;
+}
+:root[data-theme="ocean"] .approved-app .settings-row > svg {
+  color: var(--muted);
+}
+:root[data-theme="ocean"] .approved-app .settings-row:hover {
+  background: var(--panel-soft);
+}
+:root[data-theme="ocean"] .approved-app .workplace-add {
+  border-color: var(--line);
+}
+:root[data-theme="ocean"] .approved-app .chart-switch button {
+  font-size: 13px;
+}
+:root[data-theme="ocean"] .welcome-screen {
+  background: radial-gradient(ellipse at 50% 30%, #153c60, var(--bg) 70%);
+  color: var(--text);
+}
+:root[data-theme="ocean"]
+  .welcome-screen
+  :is(
+    .welcome-top,
+    .welcome-top button,
+    .welcome-art p,
+    .welcome-bottom > p,
+    .welcome-features
+  ) {
+  color: var(--muted);
+}
+:root[data-theme="ocean"] .welcome-monogram {
+  color: var(--green);
+  text-shadow: 0 0 24px #62dfff44;
+}
+:root[data-theme="ocean"] .welcome-beam {
+  background: linear-gradient(
+    150deg,
+    transparent 44%,
+    #62dfff33 50%,
+    transparent 56%
+  );
+}
+:root[data-theme="ocean"] .welcome-features svg {
+  color: var(--green);
+}
+:root[data-theme="ocean"] .welcome-bottom > .primary {
+  background: linear-gradient(120deg, var(--accent-start), var(--accent-end));
+  color: #042134;
+  box-shadow: 0 6px 24px #62dfff20;
+}
+:root[data-theme="ocean"] #welcome-line stop {
+  stop-color: var(--green-bg);
+}
+:root[data-theme="ocean"] #welcome-line stop[offset=".6"] {
+  stop-color: var(--green);
+}
+:root[data-theme="ocean"] #welcome-line stop[offset="1"] {
+  stop-color: var(--accent-bright);
+}
+.ocean-goal-amounts {
+  display: inline-flex;
+  direction: ltr;
+  gap: 6px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+:root[data-theme="ocean"] .approved-app .backup-reminder {
+  background: var(--panel);
+  border-color: var(--line);
+  color: var(--text);
+}
+:root[data-theme="ocean"] .approved-app .backup-reminder :is(strong, span) {
+  color: var(--muted);
+}

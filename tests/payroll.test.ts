@@ -217,7 +217,10 @@ test("extended backups preserve fields; merge deduplicates identical records and
       JSON.stringify({
         application: "SAVIO",
         schemaVersion: 3,
-        data: emptyData(),
+        data: {
+          ...emptyData(),
+          profile: { ...emptyData().profile, theme: "dark" },
+        },
       }),
     ).data.profile.theme,
     "dark",

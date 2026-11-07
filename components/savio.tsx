@@ -330,13 +330,15 @@ export function Savio() {
         .querySelector('meta[name="theme-color"]')
         ?.setAttribute(
           "content",
-          resolved === "light"
-            ? "#f2f5f2"
-            : resolved === "midnight"
-              ? "#070e20"
-              : resolved === "purple"
-                ? "#10091b"
-                : "#010403",
+          resolved === "ocean"
+            ? "#061426"
+            : resolved === "light"
+              ? "#f2f5f2"
+              : resolved === "midnight"
+                ? "#070e20"
+                : resolved === "purple"
+                  ? "#10091b"
+                  : "#010403",
         );
     };
     apply();
@@ -1911,7 +1913,6 @@ export function Savio() {
               {nav
                 .filter((n) =>
                   [
-                    "planner",
                     "smart",
                     "subscriptions",
                     "insights",
@@ -1936,25 +1937,45 @@ export function Savio() {
                     <div>
                       <h2>{label(key)}</h2>
                       <p>
-                        {key === "budgets"
+                        {key === "smart"
                           ? he
-                            ? "מסגרת שמתאימה לחיים שלך"
-                            : "Make room for what matters"
-                          : key === "calendar"
+                            ? "משימות, תכנון ותובנות ליום שלך"
+                            : "Your priorities, schedule and daily insights"
+                          : key === "subscriptions"
                             ? he
-                              ? "כל התשלומים והתזכורות במקום אחד"
-                              : "Payments and reminders, together"
-                            : key === "ai"
+                              ? "מנויים ותשלומים חוזרים בשליטה"
+                              : "Subscriptions and recurring payments"
+                            : key === "insights"
                               ? he
-                                ? "מחשבות טובות על הכסף שלך"
-                                : "A thoughtful financial conversation"
-                              : key === "challenges"
+                                ? "מגמות בעבודה, בכסף וביעדים"
+                                : "Trends across money, work and goals"
+                              : key === "recap"
                                 ? he
-                                  ? "הרגלים קטנים. שינוי גדול."
-                                  : "Small habits. Meaningful progress."
-                                : he
-                                  ? "העדפות, גיבוי ושחזור"
-                                  : "Preferences, backups and recovery"}
+                                  ? "החודש שלך בתמונה אחת"
+                                  : "Your month in one clear picture"
+                                : key === "reports"
+                                  ? he
+                                    ? "דוחות עבודה וכסף וייצוא נתונים"
+                                    : "Work and financial reports and exports"
+                                  : key === "budgets"
+                                    ? he
+                                      ? "מסגרת שמתאימה לחיים שלך"
+                                      : "Make room for what matters"
+                                    : key === "calendar"
+                                      ? he
+                                        ? "כל התשלומים והתזכורות במקום אחד"
+                                        : "Payments and reminders, together"
+                                      : key === "ai"
+                                        ? he
+                                          ? "מחשבות טובות על הכסף שלך"
+                                          : "A thoughtful financial conversation"
+                                        : key === "challenges"
+                                          ? he
+                                            ? "הרגלים קטנים. שינוי גדול."
+                                            : "Small habits. Meaningful progress."
+                                          : he
+                                            ? "העדפות, גיבוי ושחזור"
+                                            : "Preferences, backups and recovery"}
                       </p>
                     </div>
                     <ArrowRight size={19} />
